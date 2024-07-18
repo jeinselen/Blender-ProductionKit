@@ -7,13 +7,16 @@ Combining multiple production shortcuts and toolsets for Blender 2.8-4.1, Produc
 Includes:
 
 - https://github.com/jeinselen/VF-BlenderColorPalette
-	- Sidebar colour palette
+  - Sidebar colour palette
 - https://github.com/jeinselen/VF-BlenderSaveProjectVersion
-	- Project version archiving
+  - Project version archiving
 - https://github.com/jeinselen/VF-BlenderUpdateImages
-	- Global image updating
+  - Global image updating
 - https://github.com/jeinselen/VF-BlenderSetViewportShading
-	- Viewport shading shortcuts
+  - Viewport shading shortcuts
+- https://github.com/jeinselen/VF-BlenderDriverFunctions
+	- Driver functions (many designed to replicate After Effects expressions like `wiggle()`)
+
 
 
 
