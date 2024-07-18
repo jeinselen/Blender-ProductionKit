@@ -3,6 +3,7 @@ import os
 
 # Local imports
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
+from . import driver_functions
 from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
 from .update_images import Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui, production_kit_update_images_menu_item
 from .viewport_shading import PRODUCTIONKIT_OT_set_viewport_shading, production_kit_viewport_shading_menu_items
@@ -455,6 +456,10 @@ def register():
 	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
 	
 	
+	########## Driver Functions ##########
+	driver_functions.register()
+	
+	
 	########## Viewport Shading ##########
 	bpy.types.VIEW3D_MT_view.append(production_kit_viewport_shading_menu_items)
 	
@@ -530,6 +535,10 @@ def unregister():
 	########## Colour Palette ##########
 	# Remove local scene settings
 	del bpy.types.Scene.palette_local
+	
+	
+	########## Driver Functions ##########
+	driver_functions.unregister()
 	
 	
 	########## Viewport Shading ##########
