@@ -6,6 +6,7 @@ from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOp
 from . import driver_functions
 from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
 from .update_images import Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui, production_kit_update_images_menu_item
+from . import vertex_locations
 from .viewport_shading import PRODUCTIONKIT_OT_set_viewport_shading, production_kit_viewport_shading_menu_items
 
 
@@ -262,6 +263,27 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	
 	
 	
+	########## Vertex Location Keyframes ##########
+	
+	def update_keyframes_category(self, context):
+		category = bpy.context.preferences.addons[__package__].preferences.keyframes_category
+		try:
+			bpy.utils.unregister_class(vertex_locations.PRODUCTIONKIT_PT_vertexLocation)
+		except RuntimeError:
+			pass
+		if len(category) > 0:
+			vertex_locations.PRODUCTIONKIT_PT_vertexLocation.bl_category = category
+			bpy.utils.register_class(vertex_locations.PRODUCTIONKIT_PT_vertexLocation)
+	
+	keyframes_category: bpy.props.StringProperty(
+		name="Keyframes Panel",
+		description="Choose a category for the panel to be placed in",
+		default="Launch",
+		update=update_keyframes_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	
+	
+	
 	############################## Preferences UI ##############################
 	
 	# User Interface
@@ -377,12 +399,20 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		########## Colour Palette ##########
 		
 		layout.separator(factor = 2.0)
-		layout.label(text="Color Palette Panel", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF 
+		layout.label(text="Color Palette", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF
 		
 		grid2 = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=False, align=False)
 		grid2.prop(self, "palette_file_location", text='')
 		grid2.prop(self, "palette_file_name", text='')
 		grid2.prop(self, "palette_category", text='')
+		
+		
+		
+		########## Vertex Location Keyframes ##########
+		
+		layout.separator(factor = 2.0)
+		layout.label(text="Vertex Location Keyframes", icon="DECORATE_KEYFRAME") # GROUP_VERTEX VERTEXSEL DECORATE_KEYFRAME KEYFRAME_HLT KEYFRAME
+		layout.prop(self, "keyframes_category", text='Sidebar Tab')
 
 
 
@@ -410,6 +440,37 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name = "Editing Status",
 		description = "Editing status of the palette",
 		default = False)
+	
+	########## Vertex Location Keyframes ##########
+	
+	vertex_location_x: bpy.props.BoolProperty(
+		name="Location X",
+		description="Enable/disable keyframing of the X location channel",
+		default=True)
+	vertex_location_y: bpy.props.BoolProperty(
+		name="Location Y",
+		description="Enable/disable keyframing of the Y location channel",
+		default=True)
+	vertex_location_z: bpy.props.BoolProperty(
+		name="Location Z",
+		description="Enable/disable keyframing of the Z location channel",
+		default=True)
+	vertex_location_world_space: bpy.props.BoolProperty(
+		name="World Space",
+		description="Enable/disable world space vertex locations (when disabled the vertex locations will be relative to the mesh object)",
+		default=True)
+	vertex_location_shuffle_order: bpy.props.BoolProperty(
+		name="Shuffle Order",
+		description="Enable/disable randomisation of the order that items are associated with vertices (when disabled the item and vertex groups are sorted by internal ID, typically order of creation)",
+		default=False)
+	vertex_location_shuffle_timing: bpy.props.BoolProperty(
+		name="Shuffle Timing",
+		description="Enable/disable randomisation of the sequence order (this maintains the item and vertex order, but randomises the application of time offsets)",
+		default=False)
+	vertex_location_keyframe_offset: bpy.props.IntProperty(
+		name="Frame Offset",
+		description="Number of frames each sequential keyframe will be offset by",
+		default=1)
 
 
 
@@ -458,6 +519,10 @@ def register():
 	
 	########## Driver Functions ##########
 	driver_functions.register()
+	
+	
+	########## Vertex Location Keyframes ##########
+	vertex_locations.register()
 	
 	
 	########## Viewport Shading ##########
@@ -539,6 +604,10 @@ def unregister():
 	
 	########## Driver Functions ##########
 	driver_functions.unregister()
+	
+	
+	########## Vertex Location Keyframes ##########
+	vertex_locations.unregister()
 	
 	
 	########## Viewport Shading ##########
