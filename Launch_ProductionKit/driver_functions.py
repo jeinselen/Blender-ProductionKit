@@ -3,6 +3,34 @@ from bpy.app.handlers import persistent
 from colorsys import hsv_to_rgb
 from mathutils import noise
 
+
+
+#	curveAtTime(item name, animation curve index, sample time in frames)
+#	curveAtTime("Cube", 0, frame-5)
+#	returns the "Cube" object's first animation curve value 5 frames in the past
+#	Blender requires an animation curve to get non-current-frame data
+#	Blender doesn't reference animation curves by type or name, only numerical index
+def curve_at_time(name, channel, frame):
+	obj = bpy.data.objects[name]
+	fcurve = obj.animation_data.action.fcurves[channel]
+	return fcurve.evaluate(frame)
+
+
+
+#	hsv(hue, saturation, value, output channel)
+#	hsv(0.5, 1, 1, 0)
+#	This will convert HSV input values into RGB output values, returning the first (red) channel
+def hsv(h, s, v, c):
+	color = hsv_to_rgb(h, s, v)
+	if c < 0.5:
+		return color[0]
+	elif c < 1.5:
+		return color[1]
+	else:
+		return color[2]
+
+
+
 #	markerFrame(marker name)
 #	markerFrame("marker_1")
 def marker_frame(name):
@@ -98,27 +126,7 @@ def marker_range_clamp(start, end):
 	else:
 		return 0.5
 
-#	curveAtTime(item name, animation curve index, sample time in frames)
-#	curveAtTime("Cube", 0, frame-5)
-#	returns the "Cube" object's first animation curve value 5 frames in the past
-#	Blender requires an animation curve to get non-current-frame data
-#	Blender doesn't reference animation curves by type or name, only numerical index
-def curve_at_time(name, channel, frame):
-	obj = bpy.data.objects[name]
-	fcurve = obj.animation_data.action.fcurves[channel]
-	return fcurve.evaluate(frame)
 
-#	hsv(hue, saturation, value, output channel)
-#	hsv(0.5, 1, 1, 0)
-#	This will convert HSV input values into RGB output values, returning the first (red) channel
-def hsv(h, s, v, c):
-	color = hsv_to_rgb(h, s, v)
-	if c < 0.5:
-		return color[0]
-	elif c < 1.5:
-		return color[1]
-	else:
-		return color[2]
 
 #	random(minimum, maximum, seed)
 #	markerRangeClamp(0.5, 1.5, 3575)
@@ -127,6 +135,8 @@ def random(a, b, s=-1):
 		noise.seed_set(int(s))
 	return (noise.random() * (b - a)) + a
 
+
+
 #	wiggle(speed, distance, octaves, seed)
 #	wiggle(2, 1, 3, 4)
 #	This is vaguely comparable to AE's 2 wiggles per second moving a distance of 1m with 3 octaves and a random seed of 4
@@ -134,6 +144,8 @@ def wiggle(freq, amp, oct, seed):
 	time = bpy.context.scene.frame_current / bpy.context.scene.render.fps
 	pos = (time*0.73*freq, time*0.53*freq, seed) # magic numbers to try and mimic the actually-faster-than-per-second wiggle value in AE
 	return noise.fractal(pos, 1.0, 2.0, oct, noise_basis='PERLIN_ORIGINAL') * amp
+
+
 
 
 
