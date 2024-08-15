@@ -89,12 +89,12 @@ class PRODUCTIONKIT_PT_vertexLocation(bpy.types.Panel):
 			layout = self.layout
 			layout.use_property_decorate = False # No animation
 			
-			row1 = layout.row()
-			row1.prop(settings, 'vertex_location_x')
-			row1.prop(settings, 'vertex_location_y')
-			row1.prop(settings, 'vertex_location_z')
+			row1 = layout.row(align=True)
+			row1.prop(settings, 'vertex_location_x', text='X')
+			row1.prop(settings, 'vertex_location_y', text='Y')
+			row1.prop(settings, 'vertex_location_z', text='Z')
 			
-			row2 = layout.row()
+			row2 = layout.row(align=True)
 			row2.prop(settings, 'vertex_location_world_space')
 			row2.prop(settings, 'vertex_location_shuffle_order')
 			row2.prop(settings, 'vertex_location_shuffle_timing')

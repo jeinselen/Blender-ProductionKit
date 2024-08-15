@@ -140,7 +140,7 @@ class PRODUCTIONKIT_OT_SaveProjectVersion(bpy.types.Operator):
 		display_path = os.path.join(display_path, version_name + '.blend')
 		
 		# Provide success feedback
-		self.report ({'INFO'}, "Version saved successfully: " + display_path)
+		self.report({'INFO'}, "Version saved successfully: " + display_path)
 		if prefs.version_popup:
 			def draw(self, context):
 				self.layout.label(text=display_path)

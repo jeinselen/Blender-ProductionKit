@@ -31,100 +31,68 @@ def hsv(h, s, v, c):
 
 
 
-#	markerFrame(marker name)
-#	markerFrame("marker_1")
-def marker_frame(name):
+#	markerValue(marker name, frame or time)
+#	markerValue("marker_1", True)
+def marker_value(name, timeline=False, time=False):
 	if bpy.context.scene.timeline_markers.find(name) > -1:
-		return bpy.context.scene.timeline_markers.get(name).frame
+		frame = scene.frame_current - bpy.context.scene.timeline_markers.get(name).frame if timeline else bpy.context.scene.timeline_markers.get(name).frame
+		if time:
+			scene = bpy.context.scene
+			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
+		else:
+			return frame
 	else:
 		return 0
 
-def marker_previous():
-	# Get active scene
-	scene = bpy.context.scene
-	# Set default frame
-	frame = 0
-#	frame = scene.frame_start
-	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
-		for marker in scene.timeline_markers:
-			marker_frame = marker.frame
-			if marker_frame <= scene.frame_current and marker_frame > frame:
-				frame = marker_frame
-	# Return frame value
-	return frame
-
-def marker_next():
-	# Get active scene
-	scene = bpy.context.scene
-	# Set default frame
-#	frame = 1000000
-	frame = scene.frame_end
-	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
-		for marker in scene.timeline_markers:
-			marker_frame = marker.frame
-			if marker_frame > scene.frame_current and marker_frame < frame:
-				frame = marker_frame
-	# Return frame value
-	return frame
-
-def marker_relative_frame():
-	# Get active scene
-	scene = bpy.context.scene
-	# Set default frame
-	frame = 0
-#	frame = scene.frame_start
-	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
-		for marker in scene.timeline_markers:
-			marker_frame = marker.frame
-			if marker_frame <= scene.frame_current and marker_frame > frame:
-				frame = marker_frame
-	# Return frame value
-	return scene.frame_current - frame
-
-def marker_relative_time():
-	# Get active scene
-	scene = bpy.context.scene
-	# Set default frame
-	frame = 0
-#	frame = scene.frame_start
-	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
-		for marker in scene.timeline_markers:
-			marker_frame = marker.frame
-			if marker_frame <= scene.frame_current and marker_frame > frame:
-				frame = marker_frame
-	# Return frame value
-	return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-
 #	markerRange(marker start, marker end)
 #	markerRange("mark1", "mark2")
-def marker_range(start, end):
+def marker_range(start, end, clamp=False):
 	scene = bpy.context.scene
 	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
 		start = scene.timeline_markers.get(start).frame
 		end = scene.timeline_markers.get(end).frame
-		return (scene.frame_current - start) / (end - start)
-	else:
-		return 0.5
-
-#	markerRangeClamp(marker start, marker end)
-#	markerRangeClamp("mark1", "mark2")
-def marker_range_clamp(start, end):
-	scene = bpy.context.scene
-	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
-		start = scene.timeline_markers.get(start).frame
-		end = scene.timeline_markers.get(end).frame
-		if scene.frame_current <= start:
+		if clamp and scene.frame_current <= start:
 			return 0.0
-		elif scene.frame_current >= end:
+		elif clamp and scene.frame_current >= end:
 			return 1.0
 		else:
 			return (scene.frame_current - start) / (end - start)
 	else:
-		return 0.5
+		return 0
+
+def marker_previous(timeline=False, time=False):
+	# Get active scene
+	scene = bpy.context.scene
+	# Find closest marker frame at or before current frame
+	if len(scene.timeline_markers) > 0:
+		frame = -1000000
+		for marker in scene.timeline_markers:
+			marker_frame = marker.frame
+			if marker_frame <= scene.frame_current and marker_frame > frame:
+				frame = scene.frame_current - marker_frame if timeline else marker_frame
+		if time:
+			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
+		else:
+			return frame
+	else:
+		return scene.frame_start
+
+def marker_next(timeline=False, time=False):
+	# Get active scene
+	scene = bpy.context.scene
+	# Find closest marker frame at or before current frame
+	if len(scene.timeline_markers) > 0:
+		frame = 1000000
+		for marker in scene.timeline_markers:
+			marker_frame = marker.frame
+			if marker_frame >= scene.frame_current and marker_frame < frame:
+				frame = scene.frame_current - marker_frame if timeline else marker_frame
+		if time:
+			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
+		else:
+			return frame
+	else:
+		return scene.frame_end
 
 
 
@@ -149,18 +117,16 @@ def wiggle(freq, amp, oct, seed):
 
 
 
-# Registration functions
-
+###########################################################################
+# Addon registration functions
+			
 # Register custom functions in Blender's driver namespace
 def production_kit_driver_functions():
 	dns = bpy.app.driver_namespace
-	dns["markerFrame"] = marker_frame
+	dns["markerValue"] = marker_value
+	dns["markerRange"] = marker_range
 	dns["markerPrevious"] = marker_previous
 	dns["markerNext"] = marker_next
-	dns["markerRelativeFrame"] = marker_relative_frame
-	dns["markerRelativeTime"] = marker_relative_time
-	dns["markerRange"] = marker_range
-	dns["markerRangeClamp"] = marker_range_clamp
 	dns["curveAtTime"] = curve_at_time
 	dns["random"] = random
 	dns["hsv"] = hsv
