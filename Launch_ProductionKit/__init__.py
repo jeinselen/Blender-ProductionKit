@@ -263,6 +263,27 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	
 	
 	
+	########## Driver Functions ##########
+	
+	def update_drivers_category(self, context):
+		category = bpy.context.preferences.addons[__package__].preferences.drivers_category
+		try:
+			bpy.utils.unregister_class(driver_functions.PRODUCTIONKIT_PT_driverFunctions)
+		except RuntimeError:
+			pass
+		if len(category) > 0:
+			driver_functions.PRODUCTIONKIT_PT_driverFunctions.bl_category = category
+			bpy.utils.register_class(driver_functions.PRODUCTIONKIT_PT_driverFunctions)
+			
+	drivers_category: bpy.props.StringProperty(
+		name="Keyframes Panel",
+		description="Choose a category for the panel to be placed in",
+		default="Launch",
+		update=update_drivers_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	
+	
+	
 	########## Vertex Location Keyframes ##########
 	
 	def update_keyframes_category(self, context):
@@ -440,6 +461,130 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name = "Editing Status",
 		description = "Editing status of the palette",
 		default = False)
+	
+	########## Driver Functions ##########
+	
+	driver_select: bpy.props.EnumProperty(
+		name='Driver',
+		description='List of available driver functions',
+		items=[
+			('CURVE', 'Curve at Time', 'Value from curve at specified time or time offset'),
+			('MARKER-VALUE', 'Marker Value', 'Value of named marker'),
+			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
+			('MARKER-PREV', 'Marker Previous', 'Value of nearest marker before the current frame'),
+			('MARKER-NEXT', 'Marker Next', 'Value of nearest marker after the current frame'),
+			('RANDOM', 'Random', 'Value randomisation'),
+			('WIGGLE', 'Wiggle', 'Value noise pattern'),
+			],
+		default='CURVE')
+	
+	# Curve at Time (object name will be taken from whatever object is currently active)
+#	driver_curve_channel: bpy.props.IntProperty(
+#		name="Property",
+#		default=0)
+	
+	driver_curve_channel: bpy.props.EnumProperty(
+		name="Property",
+		items=lambda self, context: self.get_fcurve_items(context)
+	)
+	
+	def get_fcurve_items(self, context):
+		items = []
+		if context.active_object:
+			obj = context.active_object
+			if obj.animation_data:
+				if obj and obj.animation_data and obj.animation_data.action:
+					action = obj.animation_data.action
+					for index, fcurve in enumerate(action.fcurves):
+						# You can use index or fcurve data_path as identifier and name
+						name = fcurve.data_path
+						items.append((str(index), name, ""))
+		return items
+	
+	driver_curve_offset: bpy.props.StringProperty(
+		name="Offset",
+		default="frame - 10")
+	
+	# Marker
+	driver_marker_name: bpy.props.StringProperty(
+		name="Marker",
+		description='Name of the target marker',
+		default="")
+	driver_marker_end: bpy.props.StringProperty(
+		name="Marker",
+		description='Name of the target marker',
+		default="")
+	driver_marker_direction: bpy.props.EnumProperty(
+		name='Direction',
+		description='Nearest marker direction',
+		items=[
+			('PREV', 'Previous', 'Get the closest marker previous or equal to the current frame'),
+			('NEXT', 'Next', 'Get the closest marker next or equal to the current frame'),
+			],
+		default='PREV')
+	driver_marker_filter: bpy.props.EnumProperty(
+		name='Filter',
+		description='Marker filtering options',
+		items=[
+			('ALL', 'All Markers', 'Use all markers in the scene timeline'),
+			('FILTER', 'Filtered', 'Use only markers that contain the specified string'),
+			],
+		default='ALL')
+	driver_marker_string: bpy.props.StringProperty(
+		name="Filter String",
+		description='String to check marker names against',
+		default="")
+	driver_marker_timeline: bpy.props.EnumProperty(
+		name='Value',
+		description='Type of marker value',
+		items=[
+			('STATIC', 'Static Point', 'Marker point within the scene timeline'),
+			('TIMELINE', 'Relative Timeline', 'Scene timeline shifted to start at the marker point'),
+			],
+		default='STATIC')
+	driver_marker_time: bpy.props.EnumProperty(
+		name='Format',
+		description='Marker value format',
+		items=[
+			('FRAME', 'Frames', 'Use frame integer value'),
+			('TIME', 'Seconds', 'Use floating point time value'),
+			],
+		default='FRAME')
+	driver_marker_clamp: bpy.props.EnumProperty(
+		name='Clamp',
+		description='Type of marker value',
+		items=[
+			('INF', 'Infinite', 'Float values before and after the range will continue the value ramp'),
+			('CLAMP', 'Clamped', 'Clamp value ramp to 0-1 range'),
+			],
+		default='INF')
+	
+	# Random
+	driver_random_min: bpy.props.FloatProperty(
+		name="Minimum",
+		default=0.0)
+	driver_random_max: bpy.props.FloatProperty(
+		name="Maximum",
+		default=1.0)
+	driver_random_seed: bpy.props.FloatProperty(
+		name="Seed",
+		default=0.0)
+	
+	# Wiggle
+	driver_wiggle_frequency: bpy.props.FloatProperty(
+		name="Frequency",
+		default=2.0)
+	driver_wiggle_amplitude: bpy.props.FloatProperty(
+		name="Amplitude",
+		default=1.0)
+	driver_wiggle_octaves: bpy.props.FloatProperty(
+		name="Octaves",
+		default=3.0)
+	driver_wiggle_seed: bpy.props.FloatProperty(
+		name="Seed",
+		default=0.0)
+	
+	
 	
 	########## Vertex Location Keyframes ##########
 	
