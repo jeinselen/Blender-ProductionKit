@@ -514,14 +514,6 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Marker",
 		description='Name of the target marker',
 		default="")
-	driver_marker_direction: bpy.props.EnumProperty(
-		name='Direction',
-		description='Nearest marker direction',
-		items=[
-			('PREV', 'Previous', 'Get the closest marker previous or equal to the current frame'),
-			('NEXT', 'Next', 'Get the closest marker next or equal to the current frame'),
-			],
-		default='PREV')
 	driver_marker_filter: bpy.props.EnumProperty(
 		name='Filter',
 		description='Marker filtering options',
@@ -533,23 +525,23 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	driver_marker_string: bpy.props.StringProperty(
 		name="Filter String",
 		description='String to check marker names against',
-		default="")
-	driver_marker_timeline: bpy.props.EnumProperty(
+		default="marker_")
+	driver_marker_relative: bpy.props.EnumProperty(
 		name='Value',
 		description='Type of marker value',
 		items=[
-			('STATIC', 'Static Point', 'Marker point within the scene timeline'),
-			('TIMELINE', 'Relative Timeline', 'Scene timeline shifted to start at the marker point'),
+			('STATIC', 'Static Value', 'Marker point within the scene timeline'),
+			('RELATIVE', 'Relative Timeline', 'Scene timeline shifted to start at the marker point'),
 			],
 		default='STATIC')
-	driver_marker_time: bpy.props.EnumProperty(
+	driver_marker_seconds: bpy.props.EnumProperty(
 		name='Format',
 		description='Marker value format',
 		items=[
-			('FRAME', 'Frames', 'Use frame integer value'),
-			('TIME', 'Seconds', 'Use floating point time value'),
+			('FRAMES', 'Frames', 'Use frame integer value'),
+			('SECONDS', 'Seconds', 'Use floating point time value'),
 			],
-		default='FRAME')
+		default='FRAMES')
 	driver_marker_clamp: bpy.props.EnumProperty(
 		name='Clamp',
 		description='Type of marker value',
@@ -558,6 +550,10 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('CLAMP', 'Clamped', 'Clamp value ramp to 0-1 range'),
 			],
 		default='INF')
+	driver_marker_duration: bpy.props.FloatProperty(
+		name="Duration",
+		default=1.0)
+	
 	
 	# Random
 	driver_random_min: bpy.props.FloatProperty(
@@ -770,3 +766,4 @@ def unregister():
 
 if __package__ == "__main__":
 	register()
+	

@@ -33,19 +33,21 @@ def hsv(h, s, v, c):
 
 #	markerValue(required marker name, optional static or relative time, optional frames or seconds format)
 #	markerValue("marker_1", False, False)
-def marker_value(name, timeline=False, time=False):
-	if bpy.context.scene.timeline_markers.find(name) > -1:
-		scene = bpy.context.scene
-		frame = scene.frame_current - scene.timeline_markers.get(name).frame if timeline else scene.timeline_markers.get(name).frame
-		if time:
-			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-		else:
-			return frame
-	else:
-		return 0
+def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
+	scene = bpy.context.scene
+	frame = 0
+	if scene.timeline_markers.find(name) > -1:
+		frame = scene.timeline_markers.get(name).frame
+		if relative:
+			frame = scene.frame_current - frame
+		if seconds:
+			frame /= scene.render.fps / scene.render.fps_base
+			if clamp:
+				frame = min(max(frame/duration, 0), 1)
+	return frame
 
 #	markerRange(required marker start, required marker end, optional clamp at ends)
-#	markerRange("mark1", "mark2", False)
+#	markerRange("marker_1", "marker_2", False)
 def marker_range(start, end, clamp=False):
 	scene = bpy.context.scene
 	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
@@ -61,54 +63,50 @@ def marker_range(start, end, clamp=False):
 		return 0
 
 #	markerPrev(optional text filter, optional static or relative time, optional frames or seconds format)
-#	markerPrev("m", False, False)
-def marker_prev(name=False, timeline=False, time=False, clamp=False):
+def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1):
 	scene = bpy.context.scene
 	frame = scene.frame_start
-	
 	# Find closest marker frame at or before current frame
 	if len(scene.timeline_markers) > 0:
-#		frame = -1000000
+		frame = -100000
+		marker_found = False
 		for marker in scene.timeline_markers:
 			if (name and name in marker.name) or not name:
+				marker_found = True
 				if marker.frame <= scene.frame_current and marker.frame > frame:
-					frame = scene.frame_current - marker.frame if timeline else marker.frame
-			else:
-				frame = scene.frame_start
-	
-	if time:
+					frame = marker.frame
+		if not marker_found:
+			frame = scene.frame_start
+	if relative:
+		frame = scene.frame_current - frame
+	if seconds:
+		frame /= scene.render.fps / scene.render.fps_base
 		if clamp:
-			value = (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-			return 0 if value < 0 else 1 if value > 1 else value
-		else:
-			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-	else:
-		return frame
+			frame = min(max(frame/duration, 0), 1)
+	return frame
 
 #	markerNext(optional text filter, optional static or relative time, optional frames or seconds format)
-#	markerNext("m", False, False)
-def marker_next(name=False, timeline=False, time=False, clamp=False):
+def marker_next(name=False, relative=False, seconds=False, clamp=False, duration=1):
 	scene = bpy.context.scene
 	frame = scene.frame_end
-	
 	# Find closest marker frame at or before current frame
 	if len(scene.timeline_markers) > 0:
-#		frame = 1000000
+		frame = 100000
+		marker_found = False
 		for marker in scene.timeline_markers:
 			if (name and name in marker.name) or not name:
+				marker_found = True
 				if marker.frame >= scene.frame_current and marker.frame < frame:
-					frame = scene.frame_current - marker.frame if timeline else marker.frame
-			else:
-				frame = scene.frame_end
-	
-	if time:
+					frame = scene.frame_current - marker.frame if relative else marker.frame
+		if not marker_found:
+			frame = scene.frame_end
+	if relative:
+		frame = scene.frame_current - frame
+	if seconds:
+		frame /= scene.render.fps / scene.render.fps_base
 		if clamp:
-			value = (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-			return 0 if value < 0 else 1 if value > 1 else value
-		else:
-			return (scene.frame_current - frame) / (scene.render.fps / scene.render.fps_base)
-	else:
-		return frame
+			frame = min(max(frame/duration, 0), 1)
+	return frame
 
 
 
@@ -144,7 +142,7 @@ class CopyDriverToClipboard(bpy.types.Operator):
 	string: bpy.props.StringProperty(default="")
 	
 	def execute(self, context):
-		context.window_manager.clipboard = '#' + self.string
+		context.window_manager.clipboard = self.string
 		return {'FINISHED'}
 
 class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
@@ -172,10 +170,10 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			layout = self.layout
 			layout.use_property_decorate = False # No animation
 			
-			layout.prop(settings, 'driver_select', text='')
-			layout.separator()
+			col = layout.column(align=True)
+			col.prop(settings, 'driver_select', text='')
 			
-			# Holding pattern for driver
+			# Driver text
 			driver = ''
 			
 			# Error tracker
@@ -185,8 +183,8 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			if settings.driver_select == 'CURVE':
 				if context.active_object:
 					if context.active_object.animation_data:
-						layout.prop(settings, 'driver_curve_channel')
-						layout.prop(settings, 'driver_curve_offset')
+						col.prop(settings, 'driver_curve_channel')
+						col.prop(settings, 'driver_curve_offset')
 						
 						driver = f"curveAtTime('{context.active_object.name}', {settings.driver_curve_channel}, {settings.driver_curve_offset})"
 					else:
@@ -197,79 +195,104 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			# Marker
 			elif 'MARKER-' in settings.driver_select:
 				if context.scene.timeline_markers:
+					relative = True if settings.driver_marker_relative == 'RELATIVE' else False
+					seconds = True if settings.driver_marker_seconds == 'SECONDS' else False
+					clamp = True if settings.driver_marker_clamp == 'CLAMP' else False
+					duration = settings.driver_marker_duration
+					
 					# Marker Value
 					if settings.driver_select == 'MARKER-VALUE':
 						if settings.driver_marker_name == '':
 							error = 'missing marker name'
-						layout.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers")
-						layout.prop(settings, 'driver_marker_timeline', expand=True)
-						layout.prop(settings, 'driver_marker_time', expand=True)
+						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
+						col.separator()
 						
-						timeline = True if settings.driver_marker_timeline == 'TIMELINE' else False
-						time = True if settings.driver_marker_time == 'TIME' else False
+						row1 = col.row(align=True)
+						row1.prop(settings, 'driver_marker_relative', expand=True)
+						row2 = col.row(align=True)
+						row2.prop(settings, 'driver_marker_seconds', expand=True)
+						row3 = col.row(align=True)
+						if not (relative and seconds):
+							row3.active = False
+							row3.enabled = False
+							duration = 1
+						row3.prop(settings, 'driver_marker_clamp', expand=True)
+						row3.prop(settings, 'driver_marker_duration', text='')
 						
-						driver = f"markerValue('{settings.driver_marker_name}', {timeline}, {time})"
+						driver = f"markerValue('{settings.driver_marker_name}', {relative}, {seconds}, {clamp}, {duration})"
 					
 					# Marker Range
 					elif settings.driver_select == 'MARKER-RANGE':
 						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
 							error = 'missing marker name'
-						layout.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers")
-						layout.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers")
-						layout.prop(settings, 'driver_marker_clamp', expand=True)
-						
-						clamp = True if settings.driver_marker_clamp == 'CLAMP' else False
+						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
+						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
+						row1 = col.row()
+						row1.prop(settings, 'driver_marker_clamp', expand=True)
 						
 						driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp})"
 					
 					# Marker Previous
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
-						layout.prop(settings, 'driver_marker_direction', expand=True)
-						layout.prop(settings, 'driver_marker_filter', expand=True)
-						option = layout.row()
+						row1 = col.row(align=True)
+						row1.prop(settings, 'driver_marker_filter', expand=True)
+						option = col.row(align=True)
 						if settings.driver_marker_filter == 'ALL':
 							option.active = False
 							option.enabled = False
 						elif not len(settings.driver_marker_string) > 0:
 							error = 'missing filter string'
-						option.prop(settings, 'driver_marker_string')
-						layout.prop(settings, 'driver_marker_timeline', expand=True)
-						layout.prop(settings, 'driver_marker_time', expand=True)
+						option.prop(settings, 'driver_marker_string', text='')
+						col.separator()
 						
-						direction = 'markerPrev' if settings.driver_marker_direction == 'PREV' else 'markerNext'
+						row2 = col.row(align=True)
+						row2.prop(settings, 'driver_marker_relative', expand=True)
+						row3 = col.row(align=True)
+						row3.prop(settings, 'driver_marker_seconds', expand=True)
+						options = col.row(align=True)
+						if not (relative and seconds):
+							options.active = False
+							options.enabled = False
+							duration = 1
+						options.prop(settings, 'driver_marker_clamp', expand=True)
+						options.prop(settings, 'driver_marker_duration', text='')
+						
+						direction = 'markerPrev' if settings.driver_select == 'MARKER-PREV' else 'markerNext'
 						string = settings.driver_marker_string if settings.driver_marker_filter == 'FILTER' else ''
-						timeline = True if settings.driver_marker_timeline == 'TIMELINE' else False
-						time = True if settings.driver_marker_time == 'TIME' else False
 						
-						driver = f"{direction}('{string}', {timeline}, {time})"
+						driver = f"{direction}('{string}', {relative}, {seconds}, {clamp}, {duration})"
 				else:
 					error = 'no scene markers'
-				
+			
 			# Random
 			elif settings.driver_select == 'RANDOM':
-				layout.prop(settings, 'driver_random_min')
-				layout.prop(settings, 'driver_random_max')
-				layout.prop(settings, 'driver_random_seed')
+				col.prop(settings, 'driver_random_min')
+				col.prop(settings, 'driver_random_max')
+				col.prop(settings, 'driver_random_seed')
 				
 				driver = f"random({settings.driver_random_min}, {settings.driver_random_max}, {settings.driver_random_seed})"
 			
 			# Wiggle
 			elif settings.driver_select == 'WIGGLE':
-				layout.prop(settings, 'driver_wiggle_frequency')
-				layout.prop(settings, 'driver_wiggle_amplitude')
-				layout.prop(settings, 'driver_wiggle_octaves')
-				layout.prop(settings, 'driver_wiggle_seed')
+				col.prop(settings, 'driver_wiggle_frequency')
+				col.prop(settings, 'driver_wiggle_amplitude')
+				col.prop(settings, 'driver_wiggle_octaves')
+				col.prop(settings, 'driver_wiggle_seed')
 				
 				driver = f"wiggle({settings.driver_wiggle_frequency}, {settings.driver_wiggle_amplitude}, {settings.driver_wiggle_octaves}, {settings.driver_wiggle_seed})"
 			
 			# Copy to clipboard button
 			layout.separator()
+			button = layout.row()
+			text = '#' + driver
+			icon = 'COPYDOWN' # COPYDOWN PASTEDOWN
 			if len(error) > 0:
-				warning = layout.box()
-				warning.label(text=error)
-			else:
-				button = layout.operator(CopyDriverToClipboard.bl_idname, text='#'+driver, icon="COPYDOWN") # COPYDOWN PASTEDOWN
-				button.string = driver
+				text = error
+				icon = 'ERROR' # ERROR CANCEL
+				button.active = False
+				button.enabled = False
+			ops = button.operator(CopyDriverToClipboard.bl_idname, text=text, icon=icon)
+			ops.string = text
 		
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit Driver Functions panel")
