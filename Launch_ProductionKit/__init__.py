@@ -2,6 +2,7 @@ import bpy
 import os
 
 # Local imports
+from . import audio_waveforms
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
 from . import driver_functions
 from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
@@ -228,6 +229,52 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			('NONE', 'None', 'Ignore alpha channel')
 			],
 		default='STRAIGHT')
+	
+	
+	
+	########## Audio Waveforms ##########
+	
+	waveform_size_x: bpy.props.IntProperty(
+		name="Waveform Size X",
+		description="Horizontal resolution multiplier",
+		default=1,
+		soft_min=1,
+		soft_max=4,
+		min=1,
+		max=8)
+	waveform_size_y: bpy.props.IntProperty(
+		name="Waveform Size Y",
+		description="Total vertical resolution",
+		default=128,
+		soft_min=64,
+		soft_max=256,
+		min=16,
+		max=1024)
+	waveform_color: bpy.props.EnumProperty(
+		name='Waveform Color',
+		description='Set the color of generated waveforms',
+		items=[
+			('White', 'White', ''),
+			('Gray', 'Gray', ''),
+			('Black', 'Black', ''),
+			('Red', 'Red', ''),
+			('Orange', 'Orange', ''),
+			('Yellow', 'Yellow', ''),
+			('Lime', 'Green', ''),
+			('Blue', 'Blue', ''),
+			('Magenta', 'Magenta', '')
+			],
+		default='Gray') # FFmpeg color=808080
+	waveform_display_opacity: bpy.props.FloatProperty(
+		name="Display Opacity",
+		default=0.5,
+		min=0.1,
+		max=1.0)
+	waveform_display_scale: bpy.props.FloatProperty(
+		name="Display Scale",
+		default=1.0,
+		min=0.1,
+		max=10.0)
 	
 	
 	
@@ -653,6 +700,10 @@ def register():
 	bpy.types.IMAGE_MT_image.append(production_kit_update_images_menu_item)
 	
 	
+	########## Audio Waveforms ##########
+	audio_waveforms.register()
+	
+	
 	########## Colour Palette ##########
 	# Add local scene settings
 	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
@@ -741,6 +792,10 @@ def unregister():
 	########## Colour Palette ##########
 	# Remove local scene settings
 	del bpy.types.Scene.palette_local
+	
+	
+	########## Audio Waveforms ##########
+	audio_waveforms.unregister()
 	
 	
 	########## Driver Functions ##########

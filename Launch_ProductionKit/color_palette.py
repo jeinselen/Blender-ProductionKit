@@ -156,7 +156,7 @@ class PRODUCTIONKIT_PT_colorPalette(bpy.types.Panel):
 			layout = self.layout
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit palette panel header")
-			
+	
 	def draw(self, context):
 		try:
 			layout = self.layout
