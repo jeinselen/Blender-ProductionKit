@@ -1,6 +1,9 @@
 import bpy
 import os
 
+# FFmpeg system access
+from shutil import which
+
 # Local imports
 from . import audio_waveforms
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
@@ -237,7 +240,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	waveform_size_x: bpy.props.IntProperty(
 		name="Waveform Size X",
 		description="Horizontal resolution multiplier",
-		default=1,
+		default=2,
 		soft_min=1,
 		soft_max=4,
 		min=1,
@@ -251,22 +254,59 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		min=16,
 		max=1024)
 	waveform_display_color: bpy.props.FloatVectorProperty(
-		name="Display Color",
+		name="Color",
 		subtype='COLOR',
 		size=4,
 		default=(1.0, 1.0, 1.0, 0.2),
 		min=0.0,
 		max=1.0)
 	waveform_display_scale: bpy.props.FloatProperty(
-		name="Display Scale",
-		default=1.0,
-		min=0.1,
-		max=10.0)
+		name="Scale",
+		default=0.5,
+		soft_min=0.2,
+		soft_max=2.0,
+		min=0.02,
+		max=20.0)
 	waveform_display_offset: bpy.props.FloatProperty(
-		name="Display Offset",
-		default=0.0,
-		min=0.1,
-		max=1.0)
+		name="Offset",
+		default=0.5,
+		soft_min=0.0,
+		soft_max=1.0,
+		min=-1.0,
+		max=2.0)
+	
+	ffmpeg_processing: bpy.props.BoolProperty(
+		name='Enable Waveform Display',
+		description='Enables audio waveform generation using FFmpeg and turns on the drop track UI panel',
+		default=True)
+	ffmpeg_location: bpy.props.StringProperty(
+		name="FFmpeg location",
+		description="System location where the the FFmpeg command line interface is installed",
+		default="/opt/local/bin/ffmpeg",
+		maxlen=4096,
+		update=lambda self, context: self.check_ffmpeg_location())
+	ffmpeg_location_previous: bpy.props.StringProperty(default="")
+	ffmpeg_exists: bpy.props.BoolProperty(
+		name="FFmpeg exists",
+		description='Stores the existence of FFmpeg at the defined system location',
+		default=False)
+	
+	# Validate the ffmpeg location string on value change and plugin registration
+	def check_ffmpeg_location(self):
+		# Ensure it points at ffmpeg
+		if not self.ffmpeg_location.endswith('ffmpeg'):
+			self.ffmpeg_location = self.ffmpeg_location + 'ffmpeg'
+		# Test if it's a valid path and replace with valid path if such exists
+		if self.ffmpeg_location != self.ffmpeg_location_previous:
+			if which(self.ffmpeg_location) is None:
+				if which("ffmpeg") is None:
+					self.ffmpeg_exists = False
+				else:
+					self.ffmpeg_location = which("ffmpeg")
+					self.ffmpeg_exists = True
+			else:
+				self.ffmpeg_exists = True
+			self.ffmpeg_location_previous = self.ffmpeg_location
 	
 	
 	
@@ -455,16 +495,34 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		row5.prop(self, "filter5_alphamode", text='')
 		
 		
+		########## Audio Waveform ##########
+		
+		layout.separator(factor = 2.0)
+		layout.label(text="Audio Waveform", icon="COLOR") # COLOR
+		
+		grid2 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
+		grid2.prop(self, "ffmpeg_processing")
+		input = grid2.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
+		if not self.ffmpeg_processing:
+			input.active = False
+			input.enabled = False
+		input.prop(self, "ffmpeg_location", text="")
+		# Location exists success/fail
+		if self.ffmpeg_exists:
+			input.label(text="✔︎ installed")
+		else:
+			input.label(text="✘ missing")
+			
 		
 		########## Colour Palette ##########
 		
 		layout.separator(factor = 2.0)
 		layout.label(text="Color Palette", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF
 		
-		grid2 = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=False, align=False)
-		grid2.prop(self, "palette_file_location", text='')
-		grid2.prop(self, "palette_file_name", text='')
-		grid2.prop(self, "palette_category", text='')
+		grid3 = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=False, align=False)
+		grid3.prop(self, "palette_file_location", text='')
+		grid3.prop(self, "palette_file_name", text='')
+		grid3.prop(self, "palette_category", text='')
 		
 		
 		
@@ -693,6 +751,7 @@ def register():
 	
 	
 	########## Audio Waveforms ##########
+	bpy.context.preferences.addons[__package__].preferences.check_ffmpeg_location()
 	audio_waveforms.register()
 	
 	

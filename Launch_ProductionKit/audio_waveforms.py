@@ -18,18 +18,16 @@ def get_audio_clips():
 	return [strip for strip in scene.sequence_editor.sequences_all if strip.type == 'SOUND']
 
 
-def generate_waveform(audio_path, width, height):
+def generate_waveform_image(audio_path, width, height, image_path):
 	"""Generate a waveform image using FFmpeg with the given parameters."""
-	waveform_path = os.path.splitext(audio_path)[0] + "_waveform.png"
-	
-	color_rgba = f"white@1"
+	prefs = bpy.context.preferences.addons[__package__].preferences
 	
 	ffmpeg_cmd = [
-		"ffmpeg", "-i", audio_path,
+		prefs.ffmpeg_location, "-i", audio_path,
 		"-filter_complex",
 		f"aformat=channel_layouts=mono,showwavespic=s={width}x{height}:colors=white@1",
 		"-frames:v", "1", "-pix_fmt", "rgba",
-		"-y", waveform_path
+		"-y", image_path
 	]
 	
 	# Use the "-n" command to NEVER overwrite files instead of YEAH, SURE, WHY NOT overwrite files with the "-y" commend
@@ -37,7 +35,7 @@ def generate_waveform(audio_path, width, height):
 	
 	try:
 		subprocess.run(ffmpeg_cmd, check=True)
-		return waveform_path
+		return image_path
 	except subprocess.CalledProcessError:
 		print(f"Failed to generate waveform for {audio_path}")
 		return None
@@ -54,18 +52,22 @@ def generate_waveform_overlay_data():
 	for clip in get_audio_clips():
 		audio_path = str(clip.sound.filepath)
 		audio_path = os.path.realpath(bpy.path.abspath(audio_path))
+		image_path = os.path.splitext(audio_path)[0] + "_waveform.png"
 		
-		width = int(clip.frame_final_duration * prefs.waveform_size_x)  # Match the length of the clip in frames
-		height = int(prefs.waveform_size_y)
+		if not os.path.isfile(audio_path):
+			continue
 		
-		waveform_path = generate_waveform(audio_path, width, height)
+		if not os.path.isfile(image_path):
+			width = int(clip.frame_final_duration * prefs.waveform_size_x)  # Match the length of the clip in frames
+			height = int(prefs.waveform_size_y)
+			image_path = generate_waveform_image(audio_path, width, height, image_path)
 		
-		if waveform_path and os.path.exists(waveform_path):
+		if os.path.exists(image_path):
 			waveform_overlays.append({
 				"start": int(clip.frame_start),
 				"end": int(clip.frame_start) + int(clip.frame_final_duration),
 				"channel": clip.channel,
-				"image": waveform_path
+				"image": image_path
 			})
 
 
@@ -100,11 +102,11 @@ def draw_waveforms():
 			# Create mesh for display
 			start_x = overlay["start"]
 			end_x = overlay["end"]
-			screen_x_start = bpy.context.region.view2d.view_to_region(start_x, 0, clip=True)[0]
-			screen_x_end = bpy.context.region.view2d.view_to_region(end_x, 0, clip=True)[0]
+			screen_x_start = bpy.context.region.view2d.view_to_region(start_x, 0, clip=False)[0]
+			screen_x_end = bpy.context.region.view2d.view_to_region(end_x, 0, clip=False)[0]
 			
-			screen_y = 50 - (overlay["channel"] * 10)  # Offset each channel
 			height_scaled = prefs.waveform_size_y * prefs.waveform_display_scale  # Scale the waveform height
+			screen_y = 42 + (overlay["channel"] * height_scaled * 0.5) - ((1.0 - prefs.waveform_display_offset) * height_scaled)  # Offset each channel
 			
 			# Create shader batch
 			batch = batch_for_shader(shader, 'TRI_FAN', {
@@ -115,13 +117,13 @@ def draw_waveforms():
 			})
 			
 			# Bind texture and apply color tint with alpha
-			original_blend = gpu.state.blend_get
+#			original_blend = string(gpu.state.blend_get)
 			gpu.state.blend_set('ALPHA') # https://docs.blender.org/api/current/gpu.state.html
 			shader.bind()
 			shader.uniform_sampler("image", texture)
 			shader.uniform_float("color", prefs.waveform_display_color)
 			batch.draw(shader)
-			gpu.state.blend_set(original_blend)
+#			gpu.state.blend_set(original_blend)
 			
 		except Exception as e:
 			print(f"Error rendering waveform: {e}")
@@ -171,16 +173,25 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 	bl_region_type = 'UI'
 	bl_category = "Display"
 	
+	@classmethod
+	def poll(cls, context):
+		prefs = context.preferences.addons[__package__].preferences
+		return (
+			# Check if enabled
+			prefs.ffmpeg_processing
+		)
+	
 	def draw(self, context):
 		prefs = context.preferences.addons[__package__].preferences
 	#	settings = context.scene.production_kit_settings
 		
 		layout = self.layout
-		layout.prop(prefs, "waveform_display_color")
-		layout.prop(prefs, "waveform_display_scale")
-		layout.prop(prefs, "waveform_display_offset")
-		layout.operator("timeline.generate_waveform_overlay", text="Generate Timeline Waveforms", icon="SOUND")
-		layout.operator("timeline.remove_waveform_overlay", text="Remove Waveforms", icon="X")
+		grid = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=False)
+		grid.prop(prefs, "waveform_display_color", text="") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
+		grid.prop(prefs, "waveform_display_scale", text="Height", icon="VIEW_PERSPECTIVE") # VIEW_PERSPECTIVE OBJECT_DATA EMPTY_SINGLE_ARROW SHADING_BBOX FIXED_SIZE
+		grid.prop(prefs, "waveform_display_offset", text="Offset", icon="MOD_ARRAY") # MOD_ARRAY
+		layout.operator("timeline.generate_waveform_overlay", text="Generate Waveforms", icon="FORCE_HARMONIC") # FORCE_HARMONIC SEQ_HISTOGRAM RNDCURVE PLAY_SOUND OUTLINER_DATA_SPEAKER OUTLINER_OB_SPEAKER SPEAKER RIGID_BODY FORCE_HARMONIC
+		layout.operator("timeline.remove_waveform_overlay", text="Remove Waveforms", icon="X") # X
 
 
 # Register classes
