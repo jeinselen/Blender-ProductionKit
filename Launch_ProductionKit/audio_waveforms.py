@@ -2,7 +2,9 @@ import bpy
 import os
 import subprocess
 import gpu
+from gpu.types import GPUShader
 from gpu_extras.batch import batch_for_shader
+from mathutils import Matrix
 
 # Store waveform images to be drawn
 waveform_overlays = []
@@ -25,7 +27,7 @@ def generate_waveform(audio_path, width, height):
 	ffmpeg_cmd = [
 		"ffmpeg", "-i", audio_path,
 		"-filter_complex",
-		f"aformat=channel_layouts=mono,showwavespic=s={width}x{height}:colors={color_rgba}",
+		f"aformat=channel_layouts=mono,showwavespic=s={width}x{height}:colors=white@1",
 		"-frames:v", "1", "-pix_fmt", "rgba",
 		"-y", waveform_path
 	]
@@ -80,25 +82,22 @@ def draw_waveforms():
 	
 	for overlay in waveform_overlays:
 		try:
+			# Get image data
 			img = bpy.data.images.get(overlay["image"])
 			if not img:
 				img = bpy.data.images.load(overlay["image"], check_existing=True)
 				
 			if img.size[0] == 0 or img.size[1] == 0:
-				print(f"🚨 Image size is invalid: {overlay['image']}")
+				print(f"Image size is invalid: {overlay['image']}")
 				continue
 			
-			tex = gpu.texture.from_image(img)
-			if not tex:
-				print(f"🚨 Failed to create GPU texture for {overlay['image']}")
+			# Convert to GPU texture
+			texture = gpu.texture.from_image(img)
+			if not texture:
+				print(f"Failed to create GPU texture for {overlay['image']}")
 				continue
 			
-			print(f"✅ Successfully created GPU texture for {overlay['image']}")
-			
-			region = bpy.context.region
-			if not region:
-				continue
-			
+			# Create mesh for display
 			start_x = overlay["start"]
 			end_x = overlay["end"]
 			screen_x_start = bpy.context.region.view2d.view_to_region(start_x, 0, clip=True)[0]
@@ -109,16 +108,20 @@ def draw_waveforms():
 			
 			# Create shader batch
 			batch = batch_for_shader(shader, 'TRI_FAN', {
-				"pos": [(screen_x_start, screen_y), (screen_x_end, screen_y),
-						(screen_x_end, screen_y + height_scaled), (screen_x_start, screen_y + height_scaled)],
+				"pos": [(screen_x_start, screen_y), (screen_x_end, screen_y), (screen_x_end, screen_y + height_scaled), (screen_x_start, screen_y + height_scaled)],
 				"texCoord": [(0, 0), (1, 0), (1, 1), (0, 1)]
+#				"position": [(screen_x_start, screen_y), (screen_x_end, screen_y), (screen_x_end, screen_y + height_scaled), (screen_x_start, screen_y + height_scaled)],
+#				"uv": [(0, 0), (1, 0), (1, 1), (0, 1)]
 			})
 			
 			# Bind texture and apply color tint with alpha
+			original_blend = gpu.state.blend_get
+			gpu.state.blend_set('ALPHA') # https://docs.blender.org/api/current/gpu.state.html
 			shader.bind()
-			shader.uniform_sampler("image", tex)
-			shader.uniform_float("color", prefs.waveform_display_color)  # Color + Opacity
+			shader.uniform_sampler("image", texture)
+			shader.uniform_float("color", prefs.waveform_display_color)
 			batch.draw(shader)
+			gpu.state.blend_set(original_blend)
 			
 		except Exception as e:
 			print(f"Error rendering waveform: {e}")

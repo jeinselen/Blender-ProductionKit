@@ -250,31 +250,23 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		soft_max=256,
 		min=16,
 		max=1024)
-	waveform_color: bpy.props.EnumProperty(
-		name='Waveform Color',
-		description='Set the color of generated waveforms',
-		items=[
-			('White', 'White', ''),
-			('Gray', 'Gray', ''),
-			('Black', 'Black', ''),
-			('Red', 'Red', ''),
-			('Orange', 'Orange', ''),
-			('Yellow', 'Yellow', ''),
-			('Lime', 'Green', ''),
-			('Blue', 'Blue', ''),
-			('Magenta', 'Magenta', '')
-			],
-		default='Gray') # FFmpeg color=808080
-	waveform_display_opacity: bpy.props.FloatProperty(
-		name="Display Opacity",
-		default=0.5,
-		min=0.1,
+	waveform_display_color: bpy.props.FloatVectorProperty(
+		name="Display Color",
+		subtype='COLOR',
+		size=4,
+		default=(1.0, 1.0, 1.0, 0.2),
+		min=0.0,
 		max=1.0)
 	waveform_display_scale: bpy.props.FloatProperty(
 		name="Display Scale",
 		default=1.0,
 		min=0.1,
 		max=10.0)
+	waveform_display_offset: bpy.props.FloatProperty(
+		name="Display Offset",
+		default=0.0,
+		min=0.1,
+		max=1.0)
 	
 	
 	
