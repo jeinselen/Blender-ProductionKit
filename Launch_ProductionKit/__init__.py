@@ -253,6 +253,16 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		soft_max=256,
 		min=16,
 		max=1024)
+	waveform_display_sampling: bpy.props.EnumProperty(
+		name='Waveform sampling',
+		description='Set oversampling detail',
+		items=[
+			('1', 'No sampling', 'No oversampling'),
+			('2', 'x2', 'Two times oversampling'),
+			('3', 'x3', 'Three times oversampling'),
+			('4', 'x4', 'Four times oversampling')
+			],
+		default='1')
 	waveform_display_color: bpy.props.FloatVectorProperty(
 		name="Color",
 		subtype='COLOR',
@@ -495,6 +505,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		row5.prop(self, "filter5_alphamode", text='')
 		
 		
+		
 		########## Audio Waveform ##########
 		
 		layout.separator(factor = 2.0)
@@ -512,7 +523,15 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			input.label(text="✔︎ installed")
 		else:
 			input.label(text="✘ missing")
-			
+		grid2.separator()
+		input = grid2.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
+		if not self.ffmpeg_processing:
+			input.active = False
+			input.enabled = False
+		input.prop(self, "waveform_display_sampling", text="", icon="ALIASED") # ALIASED ANTIALIASED SHARPCURVE
+		input.prop(self, "waveform_display_color", text="", icon="MOD_TINT") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
+		
+		
 		
 		########## Colour Palette ##########
 		

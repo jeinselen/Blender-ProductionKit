@@ -21,11 +21,13 @@ def get_audio_clips():
 def generate_waveform_image(audio_path, width, height, image_path):
 	"""Generate a waveform image using FFmpeg with the given parameters."""
 	prefs = bpy.context.preferences.addons[__package__].preferences
+	widthSample = width * int(prefs.waveform_display_sampling)
+	heightSample = height * int(prefs.waveform_display_sampling)
 	
 	ffmpeg_cmd = [
 		prefs.ffmpeg_location, "-i", audio_path,
 		"-filter_complex",
-		f"aformat=channel_layouts=mono,showwavespic=s={width}x{height}:colors=white@1",
+		f"aformat=channel_layouts=mono,loudnorm=I=-16:TP=-1:LRA=2,showwavespic=s={widthSample}x{heightSample}:colors=white@1,scale={width}:{height}",
 		"-frames:v", "1", "-pix_fmt", "rgba",
 		"-y", image_path
 	]
@@ -186,12 +188,13 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 	#	settings = context.scene.production_kit_settings
 		
 		layout = self.layout
-		grid = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=True, align=False)
-		grid.prop(prefs, "waveform_display_color", text="") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
-		grid.prop(prefs, "waveform_display_scale", text="Height", icon="VIEW_PERSPECTIVE") # VIEW_PERSPECTIVE OBJECT_DATA EMPTY_SINGLE_ARROW SHADING_BBOX FIXED_SIZE
+		grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		grid.prop(prefs, "waveform_display_scale", text="Scale", icon="VIEW_PERSPECTIVE") # VIEW_PERSPECTIVE OBJECT_DATA EMPTY_SINGLE_ARROW SHADING_BBOX FIXED_SIZE
 		grid.prop(prefs, "waveform_display_offset", text="Offset", icon="MOD_ARRAY") # MOD_ARRAY
-		layout.operator("timeline.generate_waveform_overlay", text="Generate Waveforms", icon="FORCE_HARMONIC") # FORCE_HARMONIC SEQ_HISTOGRAM RNDCURVE PLAY_SOUND OUTLINER_DATA_SPEAKER OUTLINER_OB_SPEAKER SPEAKER RIGID_BODY FORCE_HARMONIC
-		layout.operator("timeline.remove_waveform_overlay", text="Remove Waveforms", icon="X") # X
+#		grid.prop(prefs, "waveform_display_sampling", text="", icon="ALIASED") # ALIASED ANTIALIASED SHARPCURVE
+#		grid.prop(prefs, "waveform_display_color", text="") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
+		grid.operator("timeline.generate_waveform_overlay", text="Show", icon="FORCE_HARMONIC") # FORCE_HARMONIC SEQ_HISTOGRAM RNDCURVE PLAY_SOUND OUTLINER_DATA_SPEAKER OUTLINER_OB_SPEAKER SPEAKER RIGID_BODY FORCE_HARMONIC
+		grid.operator("timeline.remove_waveform_overlay", text="Hide", icon="X") # X
 
 
 # Register classes
