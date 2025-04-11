@@ -2,25 +2,22 @@
 
 ![3D render of an abstract P-shaped logo made up of blocks with some rounded corners in soft blues, text in the image reads Production Kit from the Mograph team at Launch by NTT DATA](images/ProductionKit.jpg)
 
-Combining multiple production shortcuts and toolsets for Blender 2.8-4.1, Production Kit refactors the code for Blender 4.2. Features haven't changed significantly, so for the time being please refer to the original documentation for details.
+## Features:
 
-Includes:
-
-- https://github.com/jeinselen/VF-BlenderColorPalette
-  - Sidebar colour palette
-- https://github.com/jeinselen/VF-BlenderSaveProjectVersion
-  - Project version archiving
-- https://github.com/jeinselen/VF-BlenderUpdateImages
-  - Global image updating
-- https://github.com/jeinselen/VF-BlenderSetViewportShading
-  - Viewport shading shortcuts
-- https://github.com/jeinselen/VF-BlenderDriverFunctions
-	- Driver functions (many designed to replicate After Effects expressions like `wiggle()`)
-
-
-
-
-***WARNING: This extension is in early beta and should be installed only for testing purposes.***
+- Audio Waveforms
+  - Renders audio clips from the Sequencer as waveforms in the general Timeline view
+- Color Palette
+  - Creates a color palette in the 3D Viewport sidebar using plain text storage for easy transport
+- Driver Functions
+  - Adds custom value drivers and a GUI for setting them up, including timeline values based on markers, random, wiggle, and curve-at-time functions
+- Project Versioning
+  - Quick shortcuts for saving numbered project files in an archive location
+- Update Images
+  - Update all images from the node editor sidebar, automatically change settings based on file name patterns, and change file sources with text based find and replace
+- Vertex Location Keyframes
+  - Adds keyframes to objects using the vertex positions from a selected mesh
+- Viewport Shading
+  - Adds viewport shading options to the View menu along with number pad shortcuts
 
 
 
@@ -41,4 +38,8 @@ Includes:
 
 This method will not connect to the centralised repository here on GitHub and updates will not be automatically available. If you don't need easy updates, don't want GitHub servers to be pinged when you start up Blender, or would just like to try some extensions without adding yet another repository to your Blender settings, this is the option for you.
 
-Software is provided as-is with no warranty or provision of suitability. These are internal tools and are shared because we want to support an open community. Bug reports are welcomed, but we cannot commit to fixing or adding features.
+
+
+## Notes:
+
+Software is provided as-is with no warranty or provision of suitability. These are internal tools and are shared because we want to support an open community. Bug reports are welcomed, but we cannot commit to fixing or adding features. Not all features may be actively maintained, as they're updated on an as-needed basis.
