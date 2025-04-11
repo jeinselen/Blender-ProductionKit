@@ -4,20 +4,47 @@
 
 ## Features:
 
-- Audio Waveforms
+- ### Audio Waveforms
+
   - Renders audio clips from the Sequencer as waveforms in the general Timeline view
-- Color Palette
+
+    ![Screenshot-AudioWaveforms](images/Screenshot-AudioWaveforms.png)
+
+- ### Color Palette
+
   - Creates a color palette in the 3D Viewport sidebar using plain text storage for easy transport
-- Driver Functions
+
+    ![Screenshot-ColorPalette](images/Screenshot-ColorPalette.png)
+
+- ### Driver Functions
+
   - Adds custom value drivers and a GUI for setting them up, including timeline values based on markers, random, wiggle, and curve-at-time functions
-- Project Versioning
+
+    ![Screenshot-DriverFunctions4](images/Screenshot-DriverFunctions4.png)
+
+- ### Project Versioning
+
   - Quick shortcuts for saving numbered project files in an archive location
-- Update Images
+
+    ![Screenshot-ProjectVersion](images/Screenshot-ProjectVersion.png)
+
+- ### Update Images
+
   - Update all images from the node editor sidebar, automatically change settings based on file name patterns, and change file sources with text based find and replace
-- Vertex Location Keyframes
+
+    ![Screenshot-UpdateImages](images/Screenshot-UpdateImages.png)
+
+- ### Vertex Location Keyframes
+
   - Adds keyframes to objects using the vertex positions from a selected mesh
-- Viewport Shading
+
+    ![Screenshot-VertexKeyframes](images/Screenshot-VertexKeyframes.png)
+
+- ### Viewport Shading
+
   - Adds viewport shading options to the View menu along with number pad shortcuts
+
+    ![Screenshot-ViewportShading](images/Screenshot-ViewportShading.png)
 
 
 
