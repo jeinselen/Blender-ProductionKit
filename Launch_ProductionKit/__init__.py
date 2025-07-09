@@ -9,6 +9,7 @@ from . import audio_waveforms
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
 from . import driver_functions
 from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
+from . import shift_transforms
 from .update_images import Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui, production_kit_update_images_menu_item
 from . import vertex_locations
 from .viewport_shading import PRODUCTIONKIT_OT_set_viewport_shading, production_kit_viewport_shading_menu_items
@@ -468,7 +469,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		grid = layout.grid_flow(row_major=True, columns=2, even_columns=False, even_rows=False, align=False)
 		if not self.enable_file_format:
 			grid.enabled = False
-			
+		
 		grid.prop(self, "filter1_name", text='')
 		row1 = grid.row(align=False)
 		if not self.filter1_name:
@@ -783,6 +784,10 @@ def register():
 	driver_functions.register()
 	
 	
+	########## Shift Transforms ##########
+	shift_transforms.register()
+	
+	
 	########## Vertex Location Keyframes ##########
 	vertex_locations.register()
 	
@@ -870,6 +875,10 @@ def unregister():
 	
 	########## Driver Functions ##########
 	driver_functions.unregister()
+	
+	
+	########## Shift Transforms ##########
+	shift_transforms.unregister()
 	
 	
 	########## Vertex Location Keyframes ##########
