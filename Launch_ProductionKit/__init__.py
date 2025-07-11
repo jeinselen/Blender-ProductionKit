@@ -7,9 +7,10 @@ from shutil import which
 # Local imports
 from . import audio_waveforms
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
+from . import cycle_transforms
 from . import driver_functions
+from . import transfer_to_scene
 from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
-from . import shift_transforms
 from .update_images import Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui, production_kit_update_images_menu_item
 from . import vertex_locations
 from .viewport_shading import PRODUCTIONKIT_OT_set_viewport_shading, production_kit_viewport_shading_menu_items
@@ -770,26 +771,21 @@ def register():
 	bpy.types.IMAGE_MT_image.append(production_kit_update_images_menu_item)
 	
 	
-	########## Audio Waveforms ##########
+	########## Audio Waveforms FFmpeg Check ##########
 	bpy.context.preferences.addons[__package__].preferences.check_ffmpeg_location()
+	
+	
+	########## Register Components ##########
 	audio_waveforms.register()
+	cycle_transforms.register()
+	driver_functions.register()
+	transfer_to_scene.register()
+	vertex_locations.register()
 	
 	
 	########## Colour Palette ##########
 	# Add local scene settings
 	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
-	
-	
-	########## Driver Functions ##########
-	driver_functions.register()
-	
-	
-	########## Shift Transforms ##########
-	shift_transforms.register()
-	
-	
-	########## Vertex Location Keyframes ##########
-	vertex_locations.register()
 	
 	
 	########## Viewport Shading ##########
@@ -869,19 +865,11 @@ def unregister():
 	del bpy.types.Scene.palette_local
 	
 	
-	########## Audio Waveforms ##########
+	########## Unregister Components ##########
 	audio_waveforms.unregister()
-	
-	
-	########## Driver Functions ##########
+	cycle_transforms.unregister()
 	driver_functions.unregister()
-	
-	
-	########## Shift Transforms ##########
-	shift_transforms.unregister()
-	
-	
-	########## Vertex Location Keyframes ##########
+	transfer_to_scene.unregister()
 	vertex_locations.unregister()
 	
 	
@@ -900,4 +888,3 @@ def unregister():
 
 if __package__ == "__main__":
 	register()
-	

@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "Launch_Production_Kit"
 name = "Launch Production Kit"
-version = "0.0.6"
+version = "0.0.7"
 tagline = "Production shortcuts and toolsets"
 maintainer = "John Einselen <jeinselen@gmail.com>"
 website = "https://github.com/jeinselen/Blender-ProductionKit"
