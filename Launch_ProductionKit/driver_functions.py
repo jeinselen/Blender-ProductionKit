@@ -182,7 +182,8 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			# Curve At Time
 			if settings.driver_select == 'CURVE':
 				if context.active_object:
-					if context.active_object.animation_data:
+					obj = context.active_object
+					if obj.animation_data and obj.animation_data.action and obj.animation_data.action.fcurves:
 						col.prop(settings, 'driver_curve_channel')
 						col.prop(settings, 'driver_curve_offset')
 						

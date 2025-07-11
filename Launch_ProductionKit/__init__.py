@@ -614,9 +614,35 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 				if obj and obj.animation_data and obj.animation_data.action:
 					action = obj.animation_data.action
 					for index, fcurve in enumerate(action.fcurves):
-						# You can use index or fcurve data_path as identifier and name
-						name = fcurve.data_path
-						items.append((str(index), name, ""))
+						# Get base property name and index
+						data_path = fcurve.data_path
+						array_index = fcurve.array_index
+						
+						# Default label
+						label = data_path
+						
+						# Try to improve naming for common array-type properties
+						axis_labels = {
+							"location": ["X", "Y", "Z"],
+							"scale": ["X", "Y", "Z"],
+							"rotation_euler": ["X", "Y", "Z"],
+							"rotation_quaternion": ["W", "X", "Y", "Z"],
+							"delta_location": ["X", "Y", "Z"],
+							"delta_rotation_euler": ["X", "Y", "Z"],
+							"delta_scale": ["X", "Y", "Z"]
+						}
+						
+						short_path = data_path.split('.')[-1]
+						
+						if short_path in axis_labels:
+							axis = axis_labels[short_path][array_index]
+							label = f"{short_path.replace('_', ' ').title()} {axis}"
+						else:
+							# Fallback: include array index if applicable
+							if fcurve.array_index != -1:
+								label = f"{data_path}[{array_index}]"
+						
+						items.append((str(index), label, ""))
 		return items
 	
 	driver_curve_offset: bpy.props.StringProperty(
