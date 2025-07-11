@@ -587,6 +587,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		description='List of available driver functions',
 		items=[
 			('CURVE', 'Curve at Time', 'Value from curve at specified time or time offset'),
+			('LERP', 'Lerp Values', 'Linearly interpolate (mix) between two values using a third value'),
 			('MARKER-VALUE', 'Marker Value', 'Value of named marker'),
 			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
 			('MARKER-PREV', 'Marker Previous', 'Value of nearest marker before the current frame'),
@@ -648,6 +649,24 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	driver_curve_offset: bpy.props.StringProperty(
 		name="Offset",
 		default="frame - 10")
+	
+	
+	
+	# Lerp / Mix (also used for Marker Range)
+	driver_value_a: bpy.props.FloatProperty(
+		name="Value A",
+		description='Value at the start of a mix or marker range',
+		default=0.0)
+	driver_value_b: bpy.props.FloatProperty(
+		name="Value B",
+		description='Value at the end of a mix or marker range',
+		default=1.0)
+	driver_value_c: bpy.props.FloatProperty(
+		name="Value C",
+		description='Mix between values A and B',
+		default=0.5)
+	
+	
 	
 	# Marker
 	driver_marker_name: bpy.props.StringProperty(

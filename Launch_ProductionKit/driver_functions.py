@@ -31,6 +31,19 @@ def hsv(h, s, v, c):
 
 
 
+#	lerp(value A, value B, value mix)
+#	lerp(0.75, 0.25, 0.5)
+#	This will mix between two values
+def lerp(a, b, c):
+	if c <= 0.0:
+		return a
+	elif c >= 1.0:
+		return b
+	else:
+		return (a * (1.0 - c)) + (b * c)
+
+
+
 #	markerValue(required marker name, optional static or relative time, optional frames or seconds format)
 #	markerValue("marker_1", False, False)
 def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
@@ -46,19 +59,20 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
 				frame = min(max(frame/duration, 0), 1)
 	return frame
 
-#	markerRange(required marker start, required marker end, optional clamp at ends)
-#	markerRange("marker_1", "marker_2", False)
-def marker_range(start, end, clamp=False):
+#	markerRange(required marker start, required marker end, optional clamp at ends, optional start value, optional end value)
+#	markerRange("marker_1", "marker_2", False, 0.0, 1.0)
+def marker_range(start, end, clamp=False, a=0.0, b=1.0):
 	scene = bpy.context.scene
 	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
 		start = scene.timeline_markers.get(start).frame
 		end = scene.timeline_markers.get(end).frame
 		if clamp and scene.frame_current <= start:
-			return 0.0
+			return a
 		elif clamp and scene.frame_current >= end:
-			return 1.0
+			return b
 		else:
-			return (scene.frame_current - start) / (end - start)
+			c = (scene.frame_current - start) / (end - start)
+			return (a * (1.0 - c)) + (b * c)
 	else:
 		return 0
 
@@ -193,6 +207,14 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				else:
 					error = 'no active object'
 			
+			# Lerp
+			if settings.driver_select == 'LERP':
+				col.prop(settings, 'driver_value_a')
+				col.prop(settings, 'driver_value_b')
+				col.prop(settings, 'driver_value_c')
+				
+				driver = f"lerp({settings.driver_value_a}, {settings.driver_value_b}, {settings.driver_value_c})"
+			
 			# Marker
 			elif 'MARKER-' in settings.driver_select:
 				if context.scene.timeline_markers:
@@ -203,8 +225,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					
 					# Marker Value
 					if settings.driver_select == 'MARKER-VALUE':
-						if settings.driver_marker_name == '':
-							error = 'missing marker name'
 						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
 						col.separator()
 						
@@ -220,18 +240,32 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						row3.prop(settings, 'driver_marker_clamp', expand=True)
 						row3.prop(settings, 'driver_marker_duration', text='')
 						
-						driver = f"markerValue('{settings.driver_marker_name}', {relative}, {seconds}, {clamp}, {duration})"
+						if settings.driver_marker_name == '':
+							error = 'missing marker name'
+						else:
+							driver = f"markerValue('{settings.driver_marker_name}', {relative}, {seconds}, {clamp}, {duration})"
 					
 					# Marker Range
 					elif settings.driver_select == 'MARKER-RANGE':
-						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
-							error = 'missing marker name'
 						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
 						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
 						row1 = col.row()
 						row1.prop(settings, 'driver_marker_clamp', expand=True)
+						col.prop(settings, 'driver_value_a')
+						col.prop(settings, 'driver_value_b')
 						
-						driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp})"
+						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
+							error = 'missing marker name'
+						elif settings.driver_marker_name == settings.driver_marker_end:
+							error = 'duplicate marker name'
+						else:
+							if float(settings.driver_value_a) == 0.0 and float(settings.driver_value_b) == 1.0:
+								if settings.driver_marker_clamp is False:
+									driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}')"
+								else:
+									driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp})"
+							else:
+								driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp}, {settings.driver_value_a}, {settings.driver_value_b})"
 					
 					# Marker Previous
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
@@ -241,8 +275,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						if settings.driver_marker_filter == 'ALL':
 							option.active = False
 							option.enabled = False
-						elif not len(settings.driver_marker_string) > 0:
-							error = 'missing filter string'
 						option.prop(settings, 'driver_marker_string', text='')
 						col.separator()
 						
@@ -261,7 +293,10 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						direction = 'markerPrev' if settings.driver_select == 'MARKER-PREV' else 'markerNext'
 						string = settings.driver_marker_string if settings.driver_marker_filter == 'FILTER' else ''
 						
-						driver = f"{direction}('{string}', {relative}, {seconds}, {clamp}, {duration})"
+						if len(settings.driver_marker_string) == 0:
+							error = 'missing filter string'
+						else:
+							driver = f"{direction}('{string}', {relative}, {seconds}, {clamp}, {duration})"
 				else:
 					error = 'no scene markers'
 			
@@ -308,6 +343,8 @@ def production_kit_driver_functions():
 	dns = bpy.app.driver_namespace
 	dns["curveAtTime"] = curve_at_time
 	dns["hsv"] = hsv
+	dns["lerp"] = lerp
+#	dns["mix"] = lerp
 	dns["markerValue"] = marker_value
 	dns["markerRange"] = marker_range
 	dns["markerPrev"] = marker_prev
