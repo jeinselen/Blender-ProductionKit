@@ -587,6 +587,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		description='List of available driver functions',
 		items=[
 			('CURVE', 'Curve at Time', 'Value from curve at specified time or time offset'),
+			('EASE', 'Ease', 'Calculates easing curves between 0 and 1'),
 			('LERP', 'Lerp Values', 'Linearly interpolate (mix) between two values using a third value'),
 			('MARKER-VALUE', 'Marker Value', 'Value of named marker'),
 			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
@@ -650,6 +651,42 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Offset",
 		default="frame - 10")
 	
+	
+	
+	# Easing
+	driver_value_t: bpy.props.StringProperty(
+		name="Time",
+		description='Time value for interpolation',
+		default='frame/60')
+	driver_ease_type: bpy.props.EnumProperty(
+		name='Easing',
+		description='Ease type',
+		items=[
+			('linear', 'Linear', 'No interpolation, passes the input value without change'),
+			('smooth', 'Smooth', 'Smoothstep interpolation'),
+#			('smoothx', 'Smooth x2', 'Smoothstep interpolation calculated twice for extra-crazy-smooth results'),
+			('smoother', 'Smoother', 'Smootherstep interpolation'),
+			('sine', 'Sine', 'Sine wave curvature'),
+			('quad', 'Quad', 'Quadratic curvature'),
+			('cubic', 'Cubic', 'Cubic curvature'),
+			('quart', 'Quartic', 'Quartic curvature'),
+			('quint', 'Quintic', 'Quinctic curvature'),
+			('expo', 'Exponential', 'Exponential curvature'),
+			('circ', 'Circular', 'Circular curvature'),
+			('back', 'Back (rebound)', 'Overshoots the source and/or target values'),
+			('elastic', 'Elastic', 'Springy oscillation from or to source and target values'),
+			('bounce', 'Bounce', 'Gravitational bounce from or to source and target values'),
+			],
+		default='smooth')
+	driver_ease_direction: bpy.props.EnumProperty(
+		name='Direction',
+		description='Ease direction',
+		items=[
+			('in', 'In', 'Interpolate the start of a time range'),
+			('out', 'Out', 'Interpolate the end of a time range'),
+			('inout', 'In+Out', 'Interpolate the start and end of a time range'),
+			],
+		default='inout')
 	
 	
 	# Lerp / Mix (also used for Marker Range)

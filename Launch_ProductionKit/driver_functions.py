@@ -1,9 +1,208 @@
 import bpy
+import math
 from bpy.app.handlers import persistent
 from colorsys import hsv_to_rgb
 from mathutils import noise
 
+########## Easing Functions (adapted from the work of Robert Penner and https://easings.net/)
 
+# LINEAR
+def linear(t): return t
+
+# Smoothstep and Smootherstep variations
+def ease_in_smooth(t): return ease_in_out_smooth(t * 0.5) * 2.0
+def ease_out_smooth(t): return ease_in_out_smooth(t * 0.5 + 0.5) * 2.0 - 1.0
+def ease_in_out_smooth(t):
+	return t * t * (3 - 2 * t)
+
+def ease_in_smoothx(t): return ease_in_out_smoothx(t * 0.5) * 2.0
+def ease_out_smoothx(t): return ease_in_out_smoothx(t * 0.5 + 0.5) * 2.0 - 1.0
+def ease_in_out_smoothx(t):
+	t = t * t * (3 - 2 * t)
+	return t * t * (3 - 2 * t)
+
+def ease_in_smoother(t): return ease_in_out_smoother(t * 0.5) * 2.0
+def ease_out_smoother(t): return ease_in_out_smoother(t * 0.5 + 0.5) * 2.0 - 1.0
+def ease_in_out_smoother(t):
+	return t * t * t * (t * (6 * t - 15) + 10)
+
+# SINE
+def ease_in_sine(t): return 1 - math.cos((t * math.pi) / 2)
+def ease_out_sine(t): return math.sin((t * math.pi) / 2)
+def ease_in_out_sine(t): return -(math.cos(math.pi * t) - 1) / 2
+	
+# QUAD
+def ease_in_quad(t): return t * t
+def ease_out_quad(t): return 1 - (1 - t) * (1 - t)
+def ease_in_out_quad(t):
+	return 2 * t * t if t < 0.5 else 1 - pow(-2 * t + 2, 2) / 2
+
+# CUBIC
+def ease_in_cubic(t): return t ** 3
+def ease_out_cubic(t): return 1 - pow(1 - t, 3)
+def ease_in_out_cubic(t):
+	return 4 * t ** 3 if t < 0.5 else 1 - pow(-2 * t + 2, 3) / 2
+
+# QUART
+def ease_in_quart(t): return t ** 4
+def ease_out_quart(t): return 1 - pow(1 - t, 4)
+def ease_in_out_quart(t):
+	return 8 * t ** 4 if t < 0.5 else 1 - pow(-2 * t + 2, 4) / 2
+
+# QUINT
+def ease_in_quint(t): return t ** 5
+def ease_out_quint(t): return 1 - pow(1 - t, 5)
+def ease_in_out_quint(t):
+	return 16 * t ** 5 if t < 0.5 else 1 - pow(-2 * t + 2, 5) / 2
+
+def ease_in_expo(t):
+	return 0 if t == 0 else pow(2, 10 * t - 10)
+def ease_out_expo(t):
+	return 1 if t == 1 else 1 - pow(2, -10 * t)
+def ease_in_out_expo(t):
+	if t == 0: return 0
+	if t == 1: return 1
+	return pow(2, 20 * t - 10) / 2 if t < 0.5 else (2 - pow(2, -20 * t + 10)) / 2
+
+# CIRC
+def ease_in_circ(t): return 1 - math.sqrt(1 - t * t)
+def ease_out_circ(t): return math.sqrt(1 - pow(t - 1, 2))
+def ease_in_out_circ(t):
+	return (1 - math.sqrt(1 - (2 * t) ** 2)) / 2 if t < 0.5 else (math.sqrt(1 - pow(-2 * t + 2, 2)) + 1) / 2
+
+# BACK
+c1 = 1.70158
+c2 = c1 * 1.525
+c3 = c1 + 1
+def ease_in_back(t): return c3 * t * t * t - c1 * t * t
+def ease_out_back(t): return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+def ease_in_out_back(t):
+	if t < 0.5:
+		return (pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+	else:
+		return (pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2
+	
+# ELASTIC
+c4 = (2 * math.pi) / 3
+c5 = (2 * math.pi) / 4.5
+def ease_in_elastic(t):
+	if t == 0 or t == 1: return t
+	return -pow(2, 10 * t - 10) * math.sin((t * 10 - 10.75) * c4)
+def ease_out_elastic(t):
+	if t == 0 or t == 1: return t
+	return pow(2, -10 * t) * math.sin((t * 10 - 0.75) * c4) + 1
+def ease_in_out_elastic(t):
+	if t == 0 or t == 1: return t
+	if t < 0.5:
+		return -(pow(2, 20 * t - 10) * math.sin((20 * t - 11.125) * c5)) / 2
+	else:
+		return (pow(2, -20 * t + 10) * math.sin((20 * t - 11.125) * c5)) / 2 + 1
+	
+# BOUNCE
+def ease_out_bounce(t):
+	n1, d1 = 7.5625, 2.75
+	if t < 1 / d1:
+		return n1 * t * t
+	elif t < 2 / d1:
+		t -= 1.5 / d1
+		return n1 * t * t + 0.75
+	elif t < 2.5 / d1:
+		t -= 2.25 / d1
+		return n1 * t * t + 0.9375
+	else:
+		t -= 2.625 / d1
+		return n1 * t * t + 0.984375
+def ease_in_bounce(t): return 1 - ease_out_bounce(1 - t)
+def ease_in_out_bounce(t):
+	return (1 - ease_out_bounce(1 - 2 * t)) / 2 if t < 0.5 else (1 + ease_out_bounce(2 * t - 1)) / 2
+
+# Library
+easing_functions = {
+	"linear": {
+		"in": linear,
+		"out": linear,
+		"inout": linear
+	},
+	"smooth": {
+		"in": ease_in_smooth,
+		"out": ease_out_smooth,
+		"inout": ease_in_out_smooth
+	},
+	"smoothx": {
+		"in": ease_in_smoothx,
+		"out": ease_out_smoothx,
+		"inout": ease_in_out_smoothx
+	},
+	"smoother": {
+		"in": ease_in_smoother,
+		"out": ease_out_smoother,
+		"inout": ease_in_out_smoother
+	},
+	"sine": {
+		"in": ease_in_sine,
+		"out": ease_out_sine,
+		"inout": ease_in_out_sine
+	},
+	"quad": {
+		"in": ease_in_quad,
+		"out": ease_out_quad,
+		"inout": ease_in_out_quad
+	},
+	"cubic": {
+		"in": ease_in_cubic,
+		"out": ease_out_cubic,
+		"inout": ease_in_out_cubic
+	},
+	"quart": {
+		"in": ease_in_quart,
+		"out": ease_out_quart,
+		"inout": ease_in_out_quart
+	},
+	"quint": {
+		"in": ease_in_quint,
+		"out": ease_out_quint,
+		"inout": ease_in_out_quint
+	},
+	"expo": {
+		"in": ease_in_expo,
+		"out": ease_out_expo,
+		"inout": ease_in_out_expo
+	},
+	"circ": {
+		"in": ease_in_circ,
+		"out": ease_out_circ,
+		"inout": ease_in_out_circ
+	},
+	"back": {
+		"in": ease_in_back,
+		"out": ease_out_back,
+		"inout": ease_in_out_back
+	},
+	"elastic": {
+		"in": ease_in_elastic,
+		"out": ease_out_elastic,
+		"inout": ease_in_out_elastic
+	},
+	"bounce": {
+		"in": ease_in_bounce,
+		"out": ease_out_bounce,
+		"inout": ease_in_out_bounce
+	}
+}
+
+# Easing function for accessing all of the above from a single line
+def get_ease(time, ease_type, direction):
+	try:
+		func = easing_functions[ease_type.lower()][direction.lower()]
+		return func(time)
+	except KeyError:
+		raise ValueError(f"Easing not found for type='{ease_type}' and direction='{direction}'")
+
+
+
+
+
+########## Driver Functions
 
 #	curveAtTime(item name, animation curve index, sample time in frames)
 #	curveAtTime("Cube", 0, frame-5)
@@ -14,6 +213,23 @@ def curve_at_time(name, channel, frame):
 	obj = bpy.data.objects[name]
 	fcurve = obj.animation_data.action.fcurves[channel]
 	return fcurve.evaluate(frame)
+
+
+
+#	ease(time, type, direction)
+#	ease(frame/30, circular, inout)
+#	Implements common easing functions for a value between 0 and 1
+#	Expected use case is within additional math expressions to map the 0-1 range to the desired values
+def ease(time, ease_type, direction, a=0.0, b=1.0):
+	if time <= 0.0:
+		return 0.0
+	elif time >= 1.0:
+		return 1.0
+	else:
+		if a != 0.0 or b != 1.0:
+			return lerp(a, b, get_ease(time, ease_type, direction))
+		else:
+			return get_ease(time, ease_type, direction)
 
 
 
@@ -61,7 +277,7 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
 
 #	markerRange(required marker start, required marker end, optional clamp at ends, optional start value, optional end value)
 #	markerRange("marker_1", "marker_2", False, 0.0, 1.0)
-def marker_range(start, end, clamp=False, a=0.0, b=1.0):
+def marker_range(start, end, clamp=False, a=0.0, b=1.0, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
 		start = scene.timeline_markers.get(start).frame
@@ -72,9 +288,11 @@ def marker_range(start, end, clamp=False, a=0.0, b=1.0):
 			return b
 		else:
 			c = (scene.frame_current - start) / (end - start)
+			if clamp and ease_type != 'linear':
+				c = get_ease(c, ease_type, direction)
 			return (a * (1.0 - c)) + (b * c)
 	else:
-		return 0
+		return 0.0
 
 #	markerPrev(optional text filter, optional static or relative time, optional frames or seconds format)
 def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1):
@@ -187,7 +405,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			col = layout.column(align=True)
 			col.prop(settings, 'driver_select', text='')
 			
-			# Driver text
+			# Driver string
 			driver = ''
 			
 			# Error tracker
@@ -207,11 +425,21 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				else:
 					error = 'no active object'
 			
+			# Ease
+			if settings.driver_select == 'EASE':
+				row1 = col.row(align=True)
+				row1.prop(settings, 'driver_value_t', text='')
+				row1.prop(settings, 'driver_ease_type', text='')
+				row1.prop(settings, 'driver_ease_direction', text='')
+				
+				driver = f"ease({settings.driver_value_t}, '{settings.driver_ease_type}', '{settings.driver_ease_direction}')"
+			
 			# Lerp
 			if settings.driver_select == 'LERP':
-				col.prop(settings, 'driver_value_a')
-				col.prop(settings, 'driver_value_b')
-				col.prop(settings, 'driver_value_c')
+				row1 = col.row(align=True)
+				row1.prop(settings, 'driver_value_a')
+				row1.prop(settings, 'driver_value_b')
+				row1.prop(settings, 'driver_value_c')
 				
 				driver = f"lerp({settings.driver_value_a}, {settings.driver_value_b}, {settings.driver_value_c})"
 			
@@ -251,21 +479,35 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
 						row1 = col.row()
 						row1.prop(settings, 'driver_marker_clamp', expand=True)
-						col.prop(settings, 'driver_value_a')
-						col.prop(settings, 'driver_value_b')
+						row2 = col.row(align=True)
+						row2a = row2.row(align=True)
+						row2a.prop(settings, 'driver_value_a', text="")
+						row2a.prop(settings, 'driver_value_b', text="")
+						row2b = row2.row(align=True)
+						if settings.driver_marker_clamp != "CLAMP":
+							row2b.active = False
+							row2b.enabled = False
+						row2b.prop(settings, 'driver_ease_type', text="")
+						row2b.prop(settings, 'driver_ease_direction', text="")
 						
 						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
 							error = 'missing marker name'
 						elif settings.driver_marker_name == settings.driver_marker_end:
 							error = 'duplicate marker name'
 						else:
-							if float(settings.driver_value_a) == 0.0 and float(settings.driver_value_b) == 1.0:
-								if settings.driver_marker_clamp is False:
-									driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}')"
-								else:
-									driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp})"
-							else:
-								driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}', {clamp}, {settings.driver_value_a}, {settings.driver_value_b})"
+							driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}'"
+							clamp = True if settings.driver_marker_clamp == "CLAMP" else False
+							valueA = settings.driver_value_a
+							valueB =settings.driver_value_b
+							easeType = settings.driver_ease_type
+							easeDirection = settings.driver_ease_direction
+							if settings.driver_marker_clamp == "CLAMP":
+								driver += f", {clamp}"
+								if valueA != 0.0 or valueB != 1.0 or easeType != "linear":
+									driver += f", {valueA}, {valueB}"
+								if easeType != "linear":
+									driver += f", '{easeType}', '{easeDirection}'"
+							driver += ")"
 					
 					# Marker Previous
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
@@ -342,6 +584,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 def production_kit_driver_functions():
 	dns = bpy.app.driver_namespace
 	dns["curveAtTime"] = curve_at_time
+	dns["ease"] = ease
 	dns["hsv"] = hsv
 	dns["lerp"] = lerp
 #	dns["mix"] = lerp
