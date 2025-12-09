@@ -233,6 +233,22 @@ def ease(time, ease_type, direction, a=0.0, b=1.0):
 
 
 
+#	hash(string)
+#	hash("string of text")
+#	Returns value within the range 0 to 99999 based on the pseudo-hash of a string (deterministic based on sum ord)
+def hash(string=0):
+	if "{project}" in string:
+		import os
+		string = string.replace("{project}", os.path.splitext(os.path.basename(bpy.data.filepath))[0])
+	if "{scene}" in string:
+		string = string.replace("{scene}", bpy.context.scene.name)
+	if "{viewlayer}" in string:
+		string = string.replace("{viewlayer}", bpy.context.view_layer.name)
+#	return int(sum(ord(c) for c in str(string)) * 123.456) % 99999
+	return int(sum((i + 1) * ord(c) for i, c in enumerate(str(string))) % 99999)
+
+
+
 #	hsv(hue, saturation, value, output channel)
 #	hsv(0.5, 1, 1, 0)
 #	This will convert HSV input values into RGB output values, returning the first (red) channel
@@ -434,6 +450,25 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				
 				driver = f"ease({settings.driver_value_t}, '{settings.driver_ease_type}', '{settings.driver_ease_direction}')"
 			
+			# Hash
+			if settings.driver_select == 'HASH':
+				row1 = col.row(align=True)
+				row1.prop(settings, 'driver_var_project', toggle=1)
+				row1.prop(settings, 'driver_var_scene', toggle=1)
+				row1.prop(settings, 'driver_var_viewlayer', toggle=1)
+				
+				driver = "hash('"
+				if not (settings.driver_var_project or settings.driver_var_scene or settings.driver_var_viewlayer):
+					driver += "string"
+				else:
+					if settings.driver_var_project:
+						driver += "{project}"
+					if settings.driver_var_scene:
+						driver += "{scene}"
+					if settings.driver_var_viewlayer:
+						driver += "{viewlayer}"
+				driver += "')"
+			
 			# Lerp
 			if settings.driver_select == 'LERP':
 				row1 = col.row(align=True)
@@ -585,6 +620,7 @@ def production_kit_driver_functions():
 	dns = bpy.app.driver_namespace
 	dns["curveAtTime"] = curve_at_time
 	dns["ease"] = ease
+	dns["hash"] = hash
 	dns["hsv"] = hsv
 	dns["lerp"] = lerp
 #	dns["mix"] = lerp

@@ -588,6 +588,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		items=[
 			('CURVE', 'Curve at Time', 'Value from curve at specified time or time offset'),
 			('EASE', 'Ease', 'Calculates easing curves between 0 and 1'),
+			('HASH', 'Hash', 'Returns a number between 0 and 99999 based on a string pseudo-hash'),
 			('LERP', 'Lerp Values', 'Linearly interpolate (mix) between two values using a third value'),
 			('MARKER-VALUE', 'Marker Value', 'Value of named marker'),
 			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
@@ -687,6 +688,23 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('inout', 'In+Out', 'Interpolate the start and end of a time range'),
 			],
 		default='inout')
+	
+	
+	
+	# Hash
+	driver_var_project: bpy.props.BoolProperty(
+		name="Project",
+		description='Project name variable',
+		default=True)
+	driver_var_scene: bpy.props.BoolProperty(
+		name="Scene",
+		description='Scene name variable',
+		default=False)
+	driver_var_viewlayer: bpy.props.BoolProperty(
+		name="ViewLayer",
+		description='View Layer name variable',
+		default=False)
+	
 	
 	
 	# Lerp / Mix (also used for Marker Range)
