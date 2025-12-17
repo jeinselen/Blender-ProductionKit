@@ -772,6 +772,17 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Duration",
 		default=1.0)
 	
+	# Find & Replace marker names and driver expressions
+	driver_marker_find: bpy.props.StringProperty(
+		name="Find",
+		description='Search string',
+		default="find")
+	driver_marker_replace: bpy.props.StringProperty(
+		name="Replace",
+		description='Replacement string',
+		default="replace")
+	
+	
 	
 	# Random
 	driver_random_min: bpy.props.FloatProperty(
@@ -783,6 +794,8 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	driver_random_seed: bpy.props.FloatProperty(
 		name="Seed",
 		default=0.0)
+	
+	
 	
 	# Wiggle
 	driver_wiggle_frequency: bpy.props.FloatProperty(

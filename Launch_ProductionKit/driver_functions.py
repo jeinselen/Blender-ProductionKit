@@ -380,7 +380,7 @@ def wiggle(freq, amp, oct, seed):
 
 
 ###########################################################################
-# UI rendering class
+# Action classes
 
 class CopyDriverToClipboard(bpy.types.Operator):
 	"""Copy the specified string to the clipboard"""
@@ -392,6 +392,91 @@ class CopyDriverToClipboard(bpy.types.Operator):
 	def execute(self, context):
 		context.window_manager.clipboard = self.string
 		return {'FINISHED'}
+
+
+
+class WM_OT_find_replace_marker_expression(bpy.types.Operator):
+	"""Find and replace string in all marker names and driver expressions"""
+	bl_idname = "wm.find_replace_marker_expression"
+	bl_label = "Replace Marker Names & Driver Expressions"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	def execute(self, context):
+		settings = context.scene.production_kit_settings
+		find = settings.driver_marker_find
+		replace = settings.driver_marker_replace
+		
+		# Statistics
+		markers_modified = 0
+		drivers_modified = 0
+		
+		# Process all timeline markers
+		if bpy.context.scene.timeline_markers:
+			for marker in bpy.context.scene.timeline_markers:
+				if find in marker.name:
+					marker.name = marker.name.replace(find, replace)
+					markers_modified += 1
+					print(f"Modified marker: {marker.name}")
+		
+		# Process all objects and their drivers
+		for obj in bpy.data.objects:
+			# Check if object has animation data
+			if obj.animation_data and obj.animation_data.drivers:
+				for driver in obj.animation_data.drivers:
+					# Check the driver's expression
+					if driver.driver and driver.driver.expression:
+						if find in driver.driver.expression:
+							driver.driver.expression = driver.driver.expression.replace(
+								find, replace
+							)
+							drivers_modified += 1
+							print(f"Modified driver on {obj.name}: {driver.data_path}")
+		
+		# Also check other data types that can have drivers
+		data_collections = [
+			bpy.data.materials,
+			bpy.data.node_groups,
+			bpy.data.scenes,
+			bpy.data.worlds,
+			bpy.data.lights,
+			bpy.data.cameras,
+			bpy.data.meshes,
+			bpy.data.curves,
+			bpy.data.metaballs,
+			bpy.data.lattices,
+			bpy.data.armatures,
+			bpy.data.speakers,
+			bpy.data.textures,
+		]
+		
+		for collection in data_collections:
+			for data_item in collection:
+				if data_item.animation_data and data_item.animation_data.drivers:
+					for driver in data_item.animation_data.drivers:
+						if driver.driver and driver.driver.expression:
+							if find in driver.driver.expression:
+								driver.driver.expression = driver.driver.expression.replace(
+									find, replace
+								)
+								drivers_modified += 1
+								print(f"Modified driver on {data_item.name}: {driver.data_path}")
+		
+		# Print summary
+		print(f"\n--- Find & Replace Complete ---")
+		print(f"Search string: '{find}'")
+		print(f"Replace string: '{replace}'")
+		print(f"Markers modified: {markers_modified}")
+		print(f"Drivers modified: {drivers_modified}")
+		print(  f"-------------------------------\n")
+		
+		return {'FINISHED'}
+
+
+
+
+
+###########################################################################
+# UI rendering classes
 
 class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 	bl_space_type = "VIEW_3D"
@@ -574,6 +659,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							error = 'missing filter string'
 						else:
 							driver = f"{direction}('{string}', {relative}, {seconds}, {clamp}, {duration})"
+					
 				else:
 					error = 'no scene markers'
 			
@@ -612,6 +698,40 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 
 
 
+class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
+	bl_idname = "PRODUCTIONKIT_PT_driverFunctions_find_replace"
+	bl_label = "Find & Replace"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "UI"
+	bl_parent_id = "PRODUCTIONKIT_PT_driverFunctions"
+	bl_options = {'DEFAULT_CLOSED'}
+	
+	@classmethod
+	def poll(cls, context):
+		return context.scene.timeline_markers and 'MARKER-' in context.scene.production_kit_settings.driver_select
+	
+	def draw_header(self, context):
+		try:
+			layout = self.layout
+		except Exception as exc:
+			print(str(exc) + " | Error in Production Kit Driver Functions Find & Replace subpanel header")
+	
+	def draw(self, context):
+		try:
+			settings = context.scene.production_kit_settings
+			col = self.layout.column(align=True)
+			row = col.row(align=True)
+			row.prop(settings, 'driver_marker_find', text='')
+			row.prop(settings, 'driver_marker_replace', text='')
+			row = col.row(align=True)
+			row.operator(WM_OT_find_replace_marker_expression.bl_idname, icon='ZOOM_ALL') # ZOOM_ALL VIEWZOOM SORTBYEXT
+		except Exception as exc:
+			print(str(exc) + " | Error in Production Kit Driver Functions Find & Replace subpanel")
+
+
+
+
+
 ###########################################################################
 # Addon registration functions
 
@@ -636,7 +756,11 @@ def production_kit_driver_functions():
 def load_handler(dummy):
 	production_kit_driver_functions()
 
-classes = (CopyDriverToClipboard, PRODUCTIONKIT_PT_driverFunctions)
+classes = (
+	CopyDriverToClipboard,
+	WM_OT_find_replace_marker_expression,
+	PRODUCTIONKIT_PT_driverFunctions,
+	PRODUCTIONKIT_PT_driverFunctions_find_replace)
 
 def register():
 	for cls in classes:
