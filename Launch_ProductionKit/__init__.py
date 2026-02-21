@@ -6,6 +6,7 @@ from shutil import which
 
 # Local imports
 from . import audio_waveforms
+from . import bpm_overlay
 from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
 from . import cycle_transforms
 from . import driver_functions
@@ -573,12 +574,108 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		default=".jpg",
 		maxlen=4096)
 	
+	
+	
+	########## BPM Overlay ##########
+	
+	SHAPE_ITEMS = [
+		("CIRCLE",  "●",  "", 0), # Circle ●○
+		("DIAMOND", "⬥", "", 1), # Diamond ⬥◇
+		("RECTANGLE",  "▮",  "", 2), # Square ▮▯
+		("TRIUP",  "▲",  "", 3), # Triangle ▲△
+		("TRIDOWN",  "▼",  "", 4), # Triangle ▼▽
+	]
+	
+	bpm_show: bpy.props.BoolProperty(
+		name="Enable BPM Overlay",
+		description="Draw BPM beat/measure markers in the Dope Sheet and Timeline",
+		default=False,
+	)
+	bpm_speed: bpy.props.FloatProperty(
+		name="BPM",
+		description="Beats per minute",
+		default=120.0,
+		min=1.0,
+		max=960.0,
+		precision=1,
+	)
+	bpm_measure: bpy.props.IntProperty(
+		name="Measure",
+		description="Number of beats per measure (time-signature numerator)",
+		default=4,
+		min=1,
+		max=64,
+	)
+	bpm_time_offset: bpy.props.IntProperty(
+		name="Frame",
+		description="Frame at which beat 0 starts",
+		default=0,
+		min=-100000,
+		max=100000,
+	)
+	bpm_display_offset: bpy.props.FloatProperty(
+		name="Offset",
+		description="Vertical offset in pixels — shift the marker row up (+) or down (−)",
+		default=0.0,
+		min=-500.0,
+		max=500.0,
+		precision=1,
+	)
+	bpm_beat_color: bpy.props.FloatVectorProperty(
+		name="Beat Color",
+		description="Color for regular beat markers",
+		subtype='COLOR',
+		size=4,
+		min=0.0, max=1.0,
+		default=(0.200, 0.400, 0.900, 1.0),
+	)
+	bpm_beat_size: bpy.props.FloatProperty(
+		name="Beat Size",
+		description="Size of regular beat markers in pixels",
+		default=4.0,
+		min=1.0,
+		max=50.0,
+		precision=1,
+	)
+	bpm_beat_shape: bpy.props.EnumProperty(
+		name="Beat Shape",
+		description="Shape of regular beat markers",
+		items=SHAPE_ITEMS,
+		default="CIRCLE",
+	)
+	bpm_measure_color: bpy.props.FloatVectorProperty(
+		name="Measure Color",
+		description="Color for measure (downbeat) markers",
+		subtype='COLOR',
+		size=4,
+		min=0.0, max=1.0,
+		default=(0.900, 0.450, 0.050, 1.0),
+	)
+	bpm_measure_size: bpy.props.FloatProperty(
+		name="Measure Size",
+		description="Size of measure markers in pixels",
+		default=6.0,
+		min=1.0,
+		max=50.0,
+		precision=1,
+	)
+	bpm_measure_shape: bpy.props.EnumProperty(
+		name="Measure Shape",
+		description="Shape of measure (downbeat) markers",
+		items=SHAPE_ITEMS,
+		default="CIRCLE",
+	)
+	
+	
+	
 	########## Colour Palette ##########
 	
 	palette_edit: bpy.props.BoolProperty(
 		name = "Editing Status",
 		description = "Editing status of the palette",
 		default = False)
+	
+	
 	
 	########## Driver Functions ##########
 	
@@ -890,6 +987,7 @@ def register():
 	
 	########## Register Components ##########
 	audio_waveforms.register()
+	bpm_overlay.register()
 	cycle_transforms.register()
 	driver_functions.register()
 	transfer_to_scene.register()
@@ -980,6 +1078,7 @@ def unregister():
 	
 	########## Unregister Components ##########
 	audio_waveforms.unregister()
+	bpm_overlay.unregister()
 	cycle_transforms.unregister()
 	driver_functions.unregister()
 	transfer_to_scene.unregister()

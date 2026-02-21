@@ -149,7 +149,7 @@ def unregister_draw_handler():
 class GenerateTimelineWaveformsOperator(bpy.types.Operator):
 	"""Generate and Display Waveforms in Timeline"""
 	bl_idname = "timeline.generate_waveform_overlay"
-	bl_label = "Generate Timeline Waveforms"
+	bl_label = "Generate Audio Waveforms"
 	
 	def execute(self, context):
 		generate_waveform_overlay_data()
@@ -160,7 +160,7 @@ class GenerateTimelineWaveformsOperator(bpy.types.Operator):
 class RemoveTimelineWaveformsOperator(bpy.types.Operator):
 	"""Remove all waveform overlays from the Timeline"""
 	bl_idname = "timeline.remove_waveform_overlay"
-	bl_label = "Remove Timeline Waveforms"
+	bl_label = "Remove Audio Waveforms"
 	
 	def execute(self, context):
 		unregister_draw_handler()
@@ -169,11 +169,11 @@ class RemoveTimelineWaveformsOperator(bpy.types.Operator):
 
 class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 	"""Waveform UI Panel in Timeline"""
-	bl_label = "Timeline Waveforms"
+	bl_label = "Audio Waveforms"
 	bl_idname = "DOPESHEET_PT_waveform_display"
-	bl_space_type = 'DOPESHEET_EDITOR'
-	bl_region_type = 'UI'
-	bl_category = "Display"
+	bl_space_type = "DOPESHEET_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
 	
 	@classmethod
 	def poll(cls, context):
