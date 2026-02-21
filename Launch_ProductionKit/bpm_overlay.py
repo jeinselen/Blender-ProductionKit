@@ -51,18 +51,18 @@ def _tridown_verts(cx, cy, r):
 	return [tl, tr, b]
 
 _SHAPE_BUILDERS = {
-	"CIRCLE":  _circle_verts,
+	"CIRCLE": _circle_verts,
 	"DIAMOND": _diamond_verts,
-	"RECTANGLE":  _rectangle_verts,
-	"TRIUP":  _triup_verts,
-	"TRIDOWN":  _tridown_verts,
+	"RECTANGLE": _rectangle_verts,
+	"TRIUP": _triup_verts,
+	"TRIDOWN": _tridown_verts,
 }
 
 
 
 # ---------------------------------------------------------------------------
 # Draw callback — registered once on SpaceDopeSheetEditor,
-# which covers both the Dope Sheet and Timeline modes.
+# covers both Dope Sheet and Timeline modes.
 # ---------------------------------------------------------------------------
 
 def draw_bpm_overlay():
@@ -80,29 +80,29 @@ def draw_bpm_overlay():
 		return
 	
 	view2d = region.view2d
-	scene  = context.scene
-	fps    = scene.render.fps / scene.render.fps_base
+	scene = context.scene
+	fps = scene.render.fps / scene.render.fps_base
 	
 	beat_frames = (60.0 / settings.bpm_speed) * fps
 	if beat_frames <= 0:
 		return
 	
 	frame_start = scene.frame_start
-	frame_end   = scene.frame_end
+	frame_end = scene.frame_end
 	time_offset = settings.bpm_time_offset
-	measure     = settings.bpm_measure
+	measure = settings.bpm_measure
 	
 	first_beat = math.ceil( (frame_start - time_offset) / beat_frames)
-	last_beat  = math.floor((frame_end   - time_offset) / beat_frames)
+	last_beat = math.floor((frame_end   - time_offset) / beat_frames)
 	
-	max_size  = max(settings.bpm_beat_size, settings.bpm_measure_size)
-	base_y    = 12.0 + settings.bpm_display_offset
-	region_w  = region.width
+	max_size = max(settings.bpm_beat_size, settings.bpm_measure_size)
+	base_y = 12.0 + settings.bpm_display_offset
+	region_w = region.width
 	
-	beat_build    = _SHAPE_BUILDERS.get(settings.bpm_beat_shape,    _circle_verts)
+	beat_build = _SHAPE_BUILDERS.get(settings.bpm_beat_shape,    _circle_verts)
 	measure_build = _SHAPE_BUILDERS.get(settings.bpm_measure_shape, _circle_verts)
 	
-	beat_verts    = []
+	beat_verts = []
 	measure_verts = []
 	
 	for idx in range(first_beat, last_beat + 1):
@@ -138,9 +138,39 @@ def draw_bpm_overlay():
 
 
 # ---------------------------------------------------------------------------
-# N-panel  (DOPESHEET_EDITOR covers both Dope Sheet and Timeline tabs)
+# Shared UI drawing function
 # ---------------------------------------------------------------------------
 
+def _draw_bpm_ui(layout, context):
+	"""Shared UI drawing for BPM panel — used in both Dopesheet and 3D view."""
+	settings = context.scene.production_kit_settings
+	
+	row = layout.row()
+	row.prop(settings, "bpm_speed")
+	row.prop(settings, "bpm_measure")
+	
+	row = layout.row()
+	row.prop(settings, "bpm_time_offset")
+	row.prop(settings, "bpm_display_offset")
+	
+	row = layout.row(align=True)
+	row.label(text="Beat")
+	row.prop(settings, "bpm_beat_color", text="")
+	row.prop(settings, "bpm_beat_size", text="")
+	row.prop(settings, "bpm_beat_shape", text="")
+	
+	row = layout.row(align=True)
+	row.label(text="Measure")
+	row.prop(settings, "bpm_measure_color", text="")
+	row.prop(settings, "bpm_measure_size", text="")
+	row.prop(settings, "bpm_measure_shape", text="")
+
+
+
+# ---------------------------------------------------------------------------
+# N-panels — Dopesheet and 3D View
+# ---------------------------------------------------------------------------
+	
 class BPM_PT_panel(bpy.types.Panel):
 	bl_label = "BPM Overlay"
 	bl_idname = "BPM_PT_panel"
@@ -152,29 +182,20 @@ class BPM_PT_panel(bpy.types.Panel):
 		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
 	
 	def draw(self, context):
-		layout = self.layout
-		settings = context.scene.production_kit_settings
-		scene  = context.scene
-		
-		row = layout.row()
-		row.prop(settings, "bpm_speed")
-		row.prop(settings, "bpm_measure")
-		
-		row = layout.row()
-		row.prop(settings, "bpm_time_offset")
-		row.prop(settings, "bpm_display_offset")
-		
-		row = layout.row(align=True)
-		row.label(text="Beat") # icon='KEYFRAME'
-		row.prop(settings, "bpm_beat_color", text="")
-		row.prop(settings, "bpm_beat_size", text="")
-		row.prop(settings, "bpm_beat_shape", text="")
-		
-		row = layout.row(align=True)
-		row.label(text="Measure") # icon='KEYFRAME_HLT'
-		row.prop(settings, "bpm_measure_color", text="")
-		row.prop(settings, "bpm_measure_size", text="")
-		row.prop(settings, "bpm_measure_shape", text="")
+		_draw_bpm_ui(self.layout, context)
+
+class BPM_PT_panel_3d(bpy.types.Panel):
+	bl_label = "BPM Overlay"
+	bl_idname = "BPM_PT_panel_3d"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	
+	def draw_header(self, context):
+		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+	
+	def draw(self, context):
+		_draw_bpm_ui(self.layout, context)
 
 
 
@@ -184,6 +205,7 @@ class BPM_PT_panel(bpy.types.Panel):
 
 _CLASSES = [
 	BPM_PT_panel,
+	BPM_PT_panel_3d,
 ]
 
 _draw_handle = None

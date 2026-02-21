@@ -256,37 +256,6 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		soft_max=256,
 		min=16,
 		max=1024)
-	waveform_display_sampling: bpy.props.EnumProperty(
-		name='Waveform sampling',
-		description='Set oversampling detail',
-		items=[
-			('1', 'No sampling', 'No oversampling'),
-			('2', 'x2', 'Two times oversampling'),
-			('3', 'x3', 'Three times oversampling'),
-			('4', 'x4', 'Four times oversampling')
-			],
-		default='1')
-	waveform_display_color: bpy.props.FloatVectorProperty(
-		name="Color",
-		subtype='COLOR',
-		size=4,
-		default=(1.0, 1.0, 1.0, 0.2),
-		min=0.0,
-		max=1.0)
-	waveform_display_scale: bpy.props.FloatProperty(
-		name="Scale",
-		default=0.5,
-		soft_min=0.2,
-		soft_max=2.0,
-		min=0.02,
-		max=20.0)
-	waveform_display_offset: bpy.props.FloatProperty(
-		name="Offset",
-		default=0.5,
-		soft_min=0.0,
-		soft_max=1.0,
-		min=-1.0,
-		max=2.0)
 	
 	ffmpeg_processing: bpy.props.BoolProperty(
 		name='Enable Waveform Display',
@@ -531,8 +500,6 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		if not self.ffmpeg_processing:
 			input.active = False
 			input.enabled = False
-		input.prop(self, "waveform_display_sampling", text="", icon="ALIASED") # ALIASED ANTIALIASED SHARPCURVE
-		input.prop(self, "waveform_display_color", text="", icon="MOD_TINT") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
 		
 		
 		
@@ -567,12 +534,44 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Source File Extension",
 		description="Define the file extension you want to replace",
 		default=".png",
-		maxlen=4096)
+		maxlen=4096
+	)
 	file_extension_target: bpy.props.StringProperty(
 		name="Target File Extension",
 		description="Replace all source file extensions with this file extension",
 		default=".jpg",
-		maxlen=4096)
+		maxlen=4096
+	)
+	
+	
+	
+	########## Audio Waveform ##########
+	
+	waveform_show: bpy.props.BoolProperty(
+		name='Show Waveforms',
+		description='Display audio waveform overlays in the Dopesheet and Timeline',
+		default=False
+	)
+	waveform_display_scale: bpy.props.FloatProperty(
+		name="Scale",
+		default=1.0,
+		soft_min=0.2,
+		soft_max=2.0
+	)
+	waveform_display_offset: bpy.props.FloatProperty(
+		name="Offset",
+		default=0.0,
+		soft_min=0.0,
+		soft_max=100.0
+	)
+	waveform_display_color: bpy.props.FloatVectorProperty(
+		name="Color",
+		subtype='COLOR',
+		size=4,
+		default=(1.0, 1.0, 1.0, 0.2),
+		min=0.0,
+		max=1.0
+	)
 	
 	
 	
@@ -673,7 +672,8 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	palette_edit: bpy.props.BoolProperty(
 		name = "Editing Status",
 		description = "Editing status of the palette",
-		default = False)
+		default = False
+	)
 	
 	
 	
@@ -694,7 +694,8 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('RANDOM', 'Random', 'Value randomisation'),
 			('WIGGLE', 'Wiggle', 'Value noise pattern'),
 			],
-		default='CURVE')
+		default='CURVE'
+	)
 	
 	# Curve at Time (object name will be taken from whatever object is currently active)
 #	driver_curve_channel: bpy.props.IntProperty(
