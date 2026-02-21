@@ -145,30 +145,30 @@ def _draw_bpm_ui(layout, context):
 	"""Shared UI drawing for BPM panel — used in both Dopesheet and 3D view."""
 	settings = context.scene.production_kit_settings
 	
-	row = layout.row()
+	row = layout.row(align=True)
 	row.prop(settings, "bpm_speed")
 	row.prop(settings, "bpm_measure")
 	
-	row = layout.row()
+	row = layout.row(align=True)
 	row.prop(settings, "bpm_time_offset")
 	row.prop(settings, "bpm_display_offset")
 	
 	row = layout.row(align=True)
 	row.label(text="Beat")
-	row.prop(settings, "bpm_beat_color", text="")
+	row.prop(settings, "bpm_beat_color", text="", icon="MOD_TINT")
 	row.prop(settings, "bpm_beat_size", text="")
 	row.prop(settings, "bpm_beat_shape", text="")
 	
 	row = layout.row(align=True)
 	row.label(text="Measure")
-	row.prop(settings, "bpm_measure_color", text="")
+	row.prop(settings, "bpm_measure_color", text="", icon="MOD_TINT")
 	row.prop(settings, "bpm_measure_size", text="")
 	row.prop(settings, "bpm_measure_shape", text="")
 
 
 
 # ---------------------------------------------------------------------------
-# N-panels — Dopesheet and 3D View
+# UI Panel for the Dopesheet view
 # ---------------------------------------------------------------------------
 	
 class BPM_PT_panel(bpy.types.Panel):
@@ -180,20 +180,7 @@ class BPM_PT_panel(bpy.types.Panel):
 	
 	def draw_header(self, context):
 		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
-	
-	def draw(self, context):
-		_draw_bpm_ui(self.layout, context)
-
-class BPM_PT_panel_3d(bpy.types.Panel):
-	bl_label = "BPM Overlay"
-	bl_idname = "BPM_PT_panel_3d"
-	bl_space_type = "VIEW_3D"
-	bl_region_type = "UI"
-	bl_category = "Launch"
-	
-	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
-	
+		
 	def draw(self, context):
 		_draw_bpm_ui(self.layout, context)
 
@@ -205,7 +192,6 @@ class BPM_PT_panel_3d(bpy.types.Panel):
 
 _CLASSES = [
 	BPM_PT_panel,
-	BPM_PT_panel_3d,
 ]
 
 _draw_handle = None

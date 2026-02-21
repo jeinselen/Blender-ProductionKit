@@ -547,10 +547,15 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	########## Audio Waveform ##########
 	
+	def update_waveform_show(self, context):
+		if self.waveform_show:
+			audio_waveforms.generate_waveform_overlay_data()
+			
 	waveform_show: bpy.props.BoolProperty(
 		name='Show Waveforms',
 		description='Display audio waveform overlays in the Dopesheet and Timeline',
-		default=False
+		default=False,
+		update=update_waveform_show
 	)
 	waveform_display_scale: bpy.props.FloatProperty(
 		name="Scale",
@@ -947,17 +952,62 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 
 
 ###########################################################################
+# Unified "Timeline Overlays" panel for the 3D View sidebar
+# Combines Audio Waveforms and BPM Overlay controls in one place.
+
+class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
+	"""Combined Timeline Overlays panel in the 3D View sidebar"""
+	bl_label = "Timeline Overlays"
+	bl_idname = "VIEW3D_PT_timeline_overlays"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	
+	def draw(self, context):
+		layout = self.layout
+		settings = context.scene.production_kit_settings
+		prefs = context.preferences.addons[__package__].preferences
+		
+		if prefs.ffmpeg_processing:
+			row = layout.row()
+			row.prop(settings, "waveform_show", text="Audio Waveforms")
+			if settings.waveform_show:
+				audio_waveforms._draw_waveform_ui(layout, context)
+				
+		row = layout.row()
+		row.prop(settings, "bpm_show", text="BPM Overlay")
+		if settings.bpm_show:
+			bpm_overlay._draw_bpm_ui(layout, context)
+
+
+
+###########################################################################
 # Addon registration functions
 # •Define classes being registered
 # •Define keymap array
 # •Registration function
 # •Unregistration function
 
-classes = (ProductionKitPreferences, ProductionKitSettings,
-	ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette,
+classes = (
+	ProductionKitPreferences,
+	ProductionKitSettings,
+	ColorPaletteProperty,
+	AddColorOperator,
+	RemoveColorOperator,
+	ReorderColorOperator,
+	CopyColorOperator,
+	EditPaletteOperator,
+	SavePaletteOperator,
+	LoadPaletteOperator,
+	PRODUCTIONKIT_PT_colorPalette,
 	PRODUCTIONKIT_OT_SaveProjectVersion,
-	Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui,
-	PRODUCTIONKIT_OT_set_viewport_shading)
+	Production_Kit_Update_Images,
+	Production_Kit_Switch_Extension_Inputs,
+	Production_Kit_Replace_Extensions,
+	PRODUCTIONKIT_PT_update_images_ui,
+	PRODUCTIONKIT_OT_set_viewport_shading,
+	VIEW3D_PT_timeline_overlays
+)
 
 keymaps = []
 

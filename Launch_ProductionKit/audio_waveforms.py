@@ -47,7 +47,10 @@ def generate_waveform_image(audio_path, width, height, image_path):
 
 
 def generate_waveform_overlay_data():
-	"""Generate waveform images and prepare overlay data for drawing."""
+	"""Load or generate waveform images and prepare overlay data for drawing.
+	Existing cached waveform images on disk are loaded immediately without
+	re-running FFmpeg.  FFmpeg is only called when the image file is absent.
+	"""
 	global waveform_overlays
 	waveform_overlays.clear()
 	
@@ -61,8 +64,16 @@ def generate_waveform_overlay_data():
 		if not os.path.isfile(audio_path):
 			continue
 		
-		if not os.path.isfile(image_path):
-			width = int(clip.frame_final_duration * prefs.waveform_size_x)  # Match the length of the clip in frames
+		if os.path.isfile(image_path):
+			# Cached image already exists — use it directly without re-generating.
+			# Also purge any stale Blender-internal image block so the file on disk
+			# is always the authoritative source when we load it in draw_waveforms().
+			existing_img = bpy.data.images.get(image_path)
+			if existing_img:
+				bpy.data.images.remove(existing_img)
+		else:
+			# No cached image — generate it now via FFmpeg.
+			width = int(clip.frame_final_duration * prefs.waveform_size_x)
 			height = int(prefs.waveform_size_y)
 			image_path = generate_waveform_image(audio_path, width, height, image_path)
 		
@@ -158,16 +169,30 @@ class RegenerateWaveformsOperator(bpy.types.Operator):
 
 
 
+def _on_load_post(*args):
+	"""App handler: reload waveform data when a project is opened, if enabled."""
+	# Use a depsgraph-update-queued timer so scene properties are fully available.
+	def _deferred():
+		try:
+			settings = bpy.context.scene.production_kit_settings
+			if settings.waveform_show:
+				generate_waveform_overlay_data()
+		except Exception as e:
+			print(f"Waveform load_post error: {e}")
+	bpy.app.timers.register(_deferred, first_interval=0.1)
+
+
+
 def _draw_waveform_ui(layout, context):
 	"""Shared UI drawing for waveform panels."""
 	prefs = context.preferences.addons[__package__].preferences
 	settings = bpy.context.scene.production_kit_settings
 	
 	row = layout.row(align=True)
+	row.prop(settings, "waveform_display_color", text="", icon="MOD_TINT") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
 	row.prop(settings, "waveform_display_scale", text="Scale", icon="VIEW_PERSPECTIVE")
 	row.prop(settings, "waveform_display_offset", text="Offset", icon="MOD_ARRAY")
-	row.prop(settings, "waveform_display_color", text="", icon="MOD_TINT") # MOD_TINT COLOR RESTRICT_COLOR_OFF RESTRICT_COLOR_ON
-	row.operator("timeline.regenerate_waveforms", text="Regenerate", icon="FILE_REFRESH")
+	row.operator("timeline.regenerate_waveforms", text="", icon="FILE_REFRESH")
 
 
 
@@ -191,32 +216,13 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 
 
 
-class VIEW3D_PT_waveform_display(bpy.types.Panel):
-	"""Waveform UI Panel in 3D View sidebar"""
-	bl_label = "Audio Waveforms"
-	bl_idname = "VIEW3D_PT_waveform_display"
-	bl_space_type = "VIEW_3D"
-	bl_region_type = "UI"
-	bl_category = "Launch"
-	
-	@classmethod
-	def poll(cls, context):
-		prefs = context.preferences.addons[__package__].preferences
-		return prefs.ffmpeg_processing
-	
-	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "waveform_show", text="")
-		
-	def draw(self, context):
-		_draw_waveform_ui(self.layout, context)
-
-
-
+# ---------------------------------------------------------------------------
 # Register classes
+# ---------------------------------------------------------------------------
+
 classes = [
 	RegenerateWaveformsOperator,
 	DOPESHEET_PT_waveform_display,
-	VIEW3D_PT_waveform_display,
 ]
 
 
@@ -228,6 +234,8 @@ def register():
 		draw_handler = bpy.types.SpaceDopeSheetEditor.draw_handler_add(
 			draw_waveforms, (), 'WINDOW', 'POST_PIXEL'
 		)
+	if _on_load_post not in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.append(_on_load_post)
 
 
 def unregister():
@@ -235,6 +243,8 @@ def unregister():
 	if draw_handler is not None:
 		bpy.types.SpaceDopeSheetEditor.draw_handler_remove(draw_handler, 'WINDOW')
 		draw_handler = None
+	if _on_load_post in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.remove(_on_load_post)
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
