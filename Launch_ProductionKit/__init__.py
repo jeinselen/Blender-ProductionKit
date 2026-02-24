@@ -693,9 +693,9 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('HASH', 'Hash', 'Returns a number between 0 and 99999 based on a string pseudo-hash'),
 			('LERP', 'Lerp Values', 'Linearly interpolate (mix) between two values using a third value'),
 			('MARKER-VALUE', 'Marker Value', 'Value of named marker'),
-			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
 			('MARKER-PREV', 'Marker Previous', 'Value of nearest marker before the current frame'),
 			('MARKER-NEXT', 'Marker Next', 'Value of nearest marker after the current frame'),
+			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
 			('RANDOM', 'Random', 'Value randomisation'),
 			('WIGGLE', 'Wiggle', 'Value noise pattern'),
 			],
@@ -813,15 +813,15 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	# Lerp / Mix (also used for Marker Range)
 	driver_value_a: bpy.props.FloatProperty(
 		name="Value A",
-		description='Value at the start of a mix or marker range',
+		description='Value at the start of a mix, interpolation, or timeline range',
 		default=0.0)
 	driver_value_b: bpy.props.FloatProperty(
 		name="Value B",
-		description='Value at the end of a mix or marker range',
+		description='Value at the end of a mix, interpolation, or timeline range',
 		default=1.0)
 	driver_value_c: bpy.props.FloatProperty(
 		name="Value C",
-		description='Mix between values A and B',
+		description='Mix value between values A and B',
 		default=0.5)
 	
 	

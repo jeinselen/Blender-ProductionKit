@@ -220,16 +220,16 @@ def curve_at_time(name, channel, frame):
 #	ease(frame/30, circular, inout)
 #	Implements common easing functions for a value between 0 and 1
 #	Expected use case is within additional math expressions to map the 0-1 range to the desired values
-def ease(time, ease_type, direction, a=0.0, b=1.0):
-	if time <= 0.0:
-		return 0.0
-	elif time >= 1.0:
-		return 1.0
+def ease(time, ease_type, direction, a=0, b=1):
+	if time <= 0:
+		return a
+	elif time >= 1:
+		return b
 	else:
-		if a != 0.0 or b != 1.0:
-			return lerp(a, b, get_ease(time, ease_type, direction))
-		else:
+		if a == 0 and b == 1:
 			return get_ease(time, ease_type, direction)
+		else:
+			return lerp(a, b, get_ease(time, ease_type, direction))
 
 
 
@@ -267,18 +267,21 @@ def hsv(h, s, v, c):
 #	lerp(0.75, 0.25, 0.5)
 #	This will mix between two values
 def lerp(a, b, c):
-	if c <= 0.0:
+	if c <= 0:
 		return a
-	elif c >= 1.0:
+	elif c >= 1:
 		return b
 	else:
-		return (a * (1.0 - c)) + (b * c)
+		return (a * (1 - c)) + (b * c)
 
 
 
-#	markerValue(required marker name, optional static or relative time, optional frames or seconds format)
-#	markerValue("marker_1", False, False)
-def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
+#	markerValue(required: marker name, optional: static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerValue('marker_1')
+#	markerValue('marker_1', False, True)
+#	markerValue('marker_1', True, True, True, 1.0)
+#	markerValue('marker_1', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
+def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = 0
 	if scene.timeline_markers.find(name) > -1:
@@ -289,29 +292,19 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1):
 			frame /= scene.render.fps / scene.render.fps_base
 			if clamp:
 				frame = min(max(frame/duration, 0), 1)
+				if ease_type != 'linear':
+					frame = get_ease(frame, ease_type, direction)
+			if a != 0 or b != 1:
+				frame = (a * (1 - frame)) + (b * frame)
 	return frame
 
-#	markerRange(required marker start, required marker end, optional clamp at ends, optional start value, optional end value)
-#	markerRange("marker_1", "marker_2", False, 0.0, 1.0)
-def marker_range(start, end, clamp=False, a=0.0, b=1.0, ease_type='linear', direction='inout'):
-	scene = bpy.context.scene
-	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
-		start = scene.timeline_markers.get(start).frame
-		end = scene.timeline_markers.get(end).frame
-		if clamp and scene.frame_current <= start:
-			return a
-		elif clamp and scene.frame_current >= end:
-			return b
-		else:
-			c = (scene.frame_current - start) / (end - start)
-			if clamp and ease_type != 'linear':
-				c = get_ease(c, ease_type, direction)
-			return (a * (1.0 - c)) + (b * c)
-	else:
-		return 0.0
-
-#	markerPrev(optional text filter, optional static or relative time, optional frames or seconds format)
-def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1):
+#	markerPrev(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerPrev('')
+#	markerPrev('marker_')
+#	markerPrev('marker_', False, True)
+#	markerPrev('marker_', True, True, True, 1.0)
+#	markerPrev('marker_', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
+def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_start
 	# Find closest marker frame at or before current frame
@@ -325,16 +318,25 @@ def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration
 					frame = marker.frame
 		if not marker_found:
 			frame = scene.frame_start
-	if relative:
-		frame = scene.frame_current - frame
-	if seconds:
-		frame /= scene.render.fps / scene.render.fps_base
-		if clamp:
-			frame = min(max(frame/duration, 0), 1)
+		if relative:
+			frame = scene.frame_current - frame
+		if seconds:
+			frame /= scene.render.fps / scene.render.fps_base
+			if clamp:
+				frame = min(max(frame/duration, 0), 1)
+				if ease_type != 'linear':
+					frame = get_ease(frame, ease_type, direction)
+			if a != 0 or b != 1:
+				frame = (a * (1 - frame)) + (b * frame)
 	return frame
 
-#	markerNext(optional text filter, optional static or relative time, optional frames or seconds format)
-def marker_next(name=False, relative=False, seconds=False, clamp=False, duration=1):
+#	markerNext(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerNext()
+#	markerNext('marker_')
+#	markerNext('marker_', False, True)
+#	markerNext('marker_', True, True, True, 1.0)
+#	markerNext('marker_', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
+def marker_next(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_end
 	# Find closest marker frame at or before current frame
@@ -348,13 +350,42 @@ def marker_next(name=False, relative=False, seconds=False, clamp=False, duration
 					frame = scene.frame_current - marker.frame if relative else marker.frame
 		if not marker_found:
 			frame = scene.frame_end
-	if relative:
-		frame = scene.frame_current - frame
-	if seconds:
-		frame /= scene.render.fps / scene.render.fps_base
-		if clamp:
-			frame = min(max(frame/duration, 0), 1)
+		if relative:
+			frame = scene.frame_current - frame
+		if seconds:
+			frame /= scene.render.fps / scene.render.fps_base
+			if clamp:
+				frame = min(max(frame/duration, 0), 1)
+				if ease_type != 'linear':
+					frame = get_ease(frame, ease_type, direction)
+			if a != 0 or b != 1:
+				frame = (a * (1 - frame)) + (b * frame)
 	return frame
+
+#	markerRange(required: marker start, marker end, optional: clamp, start value, end value, ease type, ease directions)
+#	markerRange('marker_1', 'marker_2')
+#	markerRange('marker_1', 'marker_2', False, -0.5, 0.5)
+#	markerRange('marker_1', 'marker_2', True, -0.5, 0.5, 'smooth', 'inout')
+def marker_range(start, end, clamp=False, a=0, b=1, ease_type='linear', direction='inout'):
+	scene = bpy.context.scene
+	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
+		start = scene.timeline_markers.get(start).frame
+		end = scene.timeline_markers.get(end).frame
+		if clamp and scene.frame_current <= start:
+			return a
+		elif clamp and scene.frame_current >= end:
+			return b
+		else:
+			c = (scene.frame_current - start) / (end - start)
+			if clamp:
+				c = min(max(c, 0), 1)
+				if ease_type != 'linear':
+					c = get_ease(c, ease_type, direction)
+			if a != 0 or b != 1:
+				c = (a * (1.0 - c)) + (b * c)
+			return c
+	else:
+		return 0.0
 
 
 
@@ -566,16 +597,22 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			# Marker
 			elif 'MARKER-' in settings.driver_select:
 				if context.scene.timeline_markers:
+					# Settings
 					relative = True if settings.driver_marker_relative == 'RELATIVE' else False
 					seconds = True if settings.driver_marker_seconds == 'SECONDS' else False
 					clamp = True if settings.driver_marker_clamp == 'CLAMP' else False
 					duration = settings.driver_marker_duration
+					valueA = settings.driver_value_a
+					valueB = settings.driver_value_b
+					range = False
 					
 					# Marker Value
 					if settings.driver_select == 'MARKER-VALUE':
+						# Marker selection
 						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
 						col.separator()
 						
+						# Time settings
 						row1 = col.row(align=True)
 						row1.prop(settings, 'driver_marker_relative', expand=True)
 						row2 = col.row(align=True)
@@ -586,51 +623,20 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							row3.enabled = False
 							duration = 1
 						row3.prop(settings, 'driver_marker_clamp', expand=True)
-						row3.prop(settings, 'driver_marker_duration', text='')
 						
 						if settings.driver_marker_name == '':
 							error = 'missing marker name'
 						else:
-							driver = f"markerValue('{settings.driver_marker_name}', {relative}, {seconds}, {clamp}, {duration})"
+							# Short version for basic usage (interpolation added below)
+							driver = f"markerValue('{settings.driver_marker_name}'"
+							if relative or seconds:
+								driver += f", {relative}"
+								if seconds:
+									driver += f", {seconds}"
 					
-					# Marker Range
-					elif settings.driver_select == 'MARKER-RANGE':
-						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
-						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
-						row1 = col.row()
-						row1.prop(settings, 'driver_marker_clamp', expand=True)
-						row2 = col.row(align=True)
-						row2a = row2.row(align=True)
-						row2a.prop(settings, 'driver_value_a', text="")
-						row2a.prop(settings, 'driver_value_b', text="")
-						row2b = row2.row(align=True)
-						if settings.driver_marker_clamp != "CLAMP":
-							row2b.active = False
-							row2b.enabled = False
-						row2b.prop(settings, 'driver_ease_type', text="")
-						row2b.prop(settings, 'driver_ease_direction', text="")
-						
-						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
-							error = 'missing marker name'
-						elif settings.driver_marker_name == settings.driver_marker_end:
-							error = 'duplicate marker name'
-						else:
-							driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}'"
-							clamp = True if settings.driver_marker_clamp == "CLAMP" else False
-							valueA = settings.driver_value_a
-							valueB =settings.driver_value_b
-							easeType = settings.driver_ease_type
-							easeDirection = settings.driver_ease_direction
-							if settings.driver_marker_clamp == "CLAMP":
-								driver += f", {clamp}"
-								if valueA != 0.0 or valueB != 1.0 or easeType != "linear":
-									driver += f", {valueA}, {valueB}"
-								if easeType != "linear":
-									driver += f", '{easeType}', '{easeDirection}'"
-							driver += ")"
-					
-					# Marker Previous
+					# Marker Next and Marker Previous
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
+						# Marker selection
 						row1 = col.row(align=True)
 						row1.prop(settings, 'driver_marker_filter', expand=True)
 						option = col.row(align=True)
@@ -640,6 +646,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						option.prop(settings, 'driver_marker_string', text='')
 						col.separator()
 						
+						# Time settings
 						row2 = col.row(align=True)
 						row2.prop(settings, 'driver_marker_relative', expand=True)
 						row3 = col.row(align=True)
@@ -650,7 +657,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							options.enabled = False
 							duration = 1
 						options.prop(settings, 'driver_marker_clamp', expand=True)
-						options.prop(settings, 'driver_marker_duration', text='')
 						
 						direction = 'markerPrev' if settings.driver_select == 'MARKER-PREV' else 'markerNext'
 						string = settings.driver_marker_string if settings.driver_marker_filter == 'FILTER' else ''
@@ -658,7 +664,74 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						if len(settings.driver_marker_string) == 0:
 							error = 'missing filter string'
 						else:
-							driver = f"{direction}('{string}', {relative}, {seconds}, {clamp}, {duration})"
+							# Short version for basic usage (interpolation added below)
+							driver = f"{direction}('{string}'"
+							if relative or seconds:
+								driver += f", {relative}"
+								if seconds:
+									driver += f", {seconds}"
+					
+					# Marker Range
+					elif settings.driver_select == 'MARKER-RANGE':
+						range = True
+						# Marker selection
+						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
+						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
+						col.separator()
+						
+						# Time settings
+						row1 = col.row()
+						row1.prop(settings, 'driver_marker_clamp', expand=True)
+						
+						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
+							error = 'missing marker name'
+						elif settings.driver_marker_name == settings.driver_marker_end:
+							error = 'duplicate marker name'
+						else:
+							# Short version for basic usage (interpolation added below)
+							driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}'"
+					
+					# Menu Error
+					else:
+						error = 'invalid menu selection'
+					
+					# Value range UI
+					rowA = col.row(align=True)
+					if not ((relative and seconds) or range):
+						rowA.active = False
+						rowA.enabled = False
+					if not range:
+						rowA.prop(settings, 'driver_marker_duration', text='')
+					rowA.prop(settings, 'driver_value_a', text="")
+					rowA.prop(settings, 'driver_value_b', text="")
+					
+					# Interpolation UI
+					rowB = col.row(align=True)
+					if not (((relative and seconds) or range) and clamp):
+						rowB.active = False
+						rowB.enabled = False
+					rowB.prop(settings, 'driver_ease_type', text="")
+					rowB.prop(settings, 'driver_ease_direction', text="")
+					
+					# Add value and interpolation settings
+					if relative and seconds and clamp:
+						driver += f", {clamp}"
+						if not range:
+							driver += f", {duration}"
+						
+						# Get interpolation type
+						easeType = settings.driver_ease_type
+						linear = True if easeType == "linear" else False
+						
+						# We have to provide a range if the values are custom, regardless of interpolation type
+						# But if we don't need interpolation, just the range alone is fine
+						if valueA != 0 or valueB != 1 or not linear:
+							driver += f", {valueA}, {valueB}"
+							if not linear:
+								driver += f", '{easeType}', '{settings.driver_ease_direction}'"
+					
+					# Complete driver with parenthetical closing
+					driver += ")"
 					
 				else:
 					error = 'no scene markers'
