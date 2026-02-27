@@ -629,10 +629,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						else:
 							# Short version for basic usage (interpolation added below)
 							driver = f"markerValue('{settings.driver_marker_name}'"
-							if relative or seconds:
-								driver += f", {relative}"
-								if seconds:
-									driver += f", {seconds}"
 					
 					# Marker Next and Marker Previous
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
@@ -666,10 +662,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						else:
 							# Short version for basic usage (interpolation added below)
 							driver = f"{direction}('{string}'"
-							if relative or seconds:
-								driver += f", {relative}"
-								if seconds:
-									driver += f", {seconds}"
 					
 					# Marker Range
 					elif settings.driver_select == 'MARKER-RANGE':
@@ -713,8 +705,14 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					rowB.prop(settings, 'driver_ease_type', text="")
 					rowB.prop(settings, 'driver_ease_direction', text="")
 					
-					# Add value and interpolation settings
-					if relative and seconds and clamp:
+					# Relative and seconds
+					if (relative or seconds) and not range:
+						driver += f", {relative}"
+						if seconds:
+							driver += f", {seconds}"
+					
+					# Clamp, range, and interpolation
+					if clamp:
 						driver += f", {clamp}"
 						if not range:
 							driver += f", {duration}"
@@ -729,6 +727,9 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							driver += f", {valueA}, {valueB}"
 							if not linear:
 								driver += f", '{easeType}', '{settings.driver_ease_direction}'"
+					# Support marker range remapping of start/end values when unclamped
+					elif range and (valueA != 0 or valueB != 1):
+						driver += f", {clamp}, {valueA}, {valueB}"
 					
 					# Complete driver with parenthetical closing
 					driver += ")"

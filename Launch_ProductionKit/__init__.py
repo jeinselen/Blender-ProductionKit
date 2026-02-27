@@ -812,16 +812,16 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	# Lerp / Mix (also used for Marker Range)
 	driver_value_a: bpy.props.FloatProperty(
-		name="Value A",
+		name="Start Value",
 		description='Value at the start of a mix, interpolation, or timeline range',
 		default=0.0)
 	driver_value_b: bpy.props.FloatProperty(
-		name="Value B",
+		name="End Value",
 		description='Value at the end of a mix, interpolation, or timeline range',
 		default=1.0)
 	driver_value_c: bpy.props.FloatProperty(
-		name="Value C",
-		description='Mix value between values A and B',
+		name="Mix Value",
+		description='Mix value between start and end values',
 		default=0.5)
 	
 	
