@@ -689,7 +689,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					
 					# Value range UI
 					rowA = col.row(align=True)
-					if not ((relative and seconds) or range):
+					if not range and not (relative and seconds and clamp):
 						rowA.active = False
 						rowA.enabled = False
 					if not range:
@@ -712,7 +712,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							driver += f", {seconds}"
 					
 					# Clamp, range, and interpolation
-					if clamp:
+					if ((relative and seconds) or range) and clamp:
 						driver += f", {clamp}"
 						if not range:
 							driver += f", {duration}"

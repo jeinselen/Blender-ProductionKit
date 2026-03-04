@@ -781,7 +781,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('elastic', 'Elastic', 'Springy oscillation from or to source and target values'),
 			('bounce', 'Bounce', 'Gravitational bounce from or to source and target values'),
 			],
-		default='smooth')
+		default='linear')
 	driver_ease_direction: bpy.props.EnumProperty(
 		name='Direction',
 		description='Ease direction',
