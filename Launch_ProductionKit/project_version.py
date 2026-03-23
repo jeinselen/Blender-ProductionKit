@@ -25,7 +25,7 @@ class PRODUCTIONKIT_OT_SaveProjectVersion(bpy.types.Operator):
 		version_path = bpy.path.abspath(prefs.version_path)
 		version_type = prefs.version_type
 		if (prefs.version_auto):
-			alphanum = search('(\d+[A-Za-z]{1})$', project_name)
+			alphanum = search(r'(\d+[A-Za-z]{1})$', project_name)
 			if alphanum is not None:
 				version_type = 'ALPHANUM'
 		version_separator = prefs.version_separator
