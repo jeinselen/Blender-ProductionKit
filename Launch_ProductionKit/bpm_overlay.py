@@ -177,6 +177,8 @@ class BPM_PT_panel(bpy.types.Panel):
 	bl_space_type = "DOPESHEET_EDITOR"
 	bl_region_type = "UI"
 	bl_category = "Launch"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
 	
 	def draw_header(self, context):
 		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")

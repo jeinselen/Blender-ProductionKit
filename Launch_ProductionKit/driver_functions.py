@@ -510,13 +510,13 @@ class WM_OT_find_replace_marker_expression(bpy.types.Operator):
 # UI rendering classes
 
 class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
+	bl_label = "Driver Functions"
+	bl_idname = "PRODUCTIONKIT_PT_driverFunctions"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = 'Launch'
-	bl_order = 4
+	bl_order = 24
 	bl_options = {'DEFAULT_CLOSED'}
-	bl_label = "Driver Functions"
-	bl_idname = "PRODUCTIONKIT_PT_driverFunctions"
 	
 	@classmethod
 	def poll(cls, context):
@@ -773,8 +773,8 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 
 
 class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
-	bl_idname = "PRODUCTIONKIT_PT_driverFunctions_find_replace"
 	bl_label = "Find & Replace"
+	bl_idname = "PRODUCTIONKIT_PT_driverFunctions_find_replace"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_parent_id = "PRODUCTIONKIT_PT_driverFunctions"

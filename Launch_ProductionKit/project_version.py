@@ -165,3 +165,55 @@ def TOPBAR_MT_file_save_version(self, context):
 	else:
 		self.layout.operator(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, text = "Save Version", icon = "FOLDER_REDIRECT")
 	# FILE_NEW FILE_TICK FILE_BLEND FOLDER_REDIRECT
+
+
+
+# ---------------------------------------------------------------------------
+# Register classes
+# ---------------------------------------------------------------------------
+
+classes = [
+	PRODUCTIONKIT_OT_SaveProjectVersion,
+]
+
+keymaps = []
+
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+	bpy.types.TOPBAR_MT_file.append(TOPBAR_MT_file_save_version)
+
+	wm = bpy.context.window_manager
+	kc = wm.keyconfigs.addon
+	if kc:
+		# Linux/Windows Increment/Increment Minor
+		km = wm.keyconfigs.addon.keymaps.new(name='Window')
+		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', ctrl=True, alt=True, shift=True)
+		kmi.properties.increment_major = False
+		keymaps.append((km, kmi))
+
+		## MacOS Increment/Increment Minor
+		km = wm.keyconfigs.addon.keymaps.new(name='Window')
+		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', oskey=True, alt=True, shift=True)
+		kmi.properties.increment_major = False
+		keymaps.append((km, kmi))
+
+		## MacOS Increment Major
+		km = wm.keyconfigs.addon.keymaps.new(name='Window')
+		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', oskey=True, ctrl=True, alt=True, shift=True)
+		kmi.properties.increment_major = True
+		keymaps.append((km, kmi))
+
+
+def unregister():
+	for km, kmi in keymaps:
+		km.keymap_items.remove(kmi)
+	keymaps.clear()
+	bpy.types.TOPBAR_MT_file.remove(TOPBAR_MT_file_save_version)
+	for cls in reversed(classes):
+		bpy.utils.unregister_class(cls)
+
+
+if __name__ == "__main__":
+	register()

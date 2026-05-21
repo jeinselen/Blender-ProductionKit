@@ -65,13 +65,13 @@ class SetVertexLocationKeyframes(bpy.types.Operator):
 # UI rendering class
 
 class PRODUCTIONKIT_PT_vertexLocation(bpy.types.Panel):
+	bl_label = "Vertex Location Keyframes"
+	bl_idname = "PRODUCTIONKIT_PT_vertexLocation"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = 'Launch'
-	bl_order = 2
+	bl_order = 23
 	bl_options = {'DEFAULT_CLOSED'}
-	bl_label = "Vertex Location Keyframes"
-	bl_idname = "PRODUCTIONKIT_PT_vertexLocation"
 	
 	@classmethod
 	def poll(cls, context):
@@ -133,3 +133,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+	

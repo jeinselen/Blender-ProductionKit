@@ -203,6 +203,8 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 	bl_space_type = "DOPESHEET_EDITOR"
 	bl_region_type = "UI"
 	bl_category = "Launch"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
 	
 	@classmethod
 	def poll(cls, context):

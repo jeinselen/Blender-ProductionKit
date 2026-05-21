@@ -92,10 +92,12 @@ class Production_Kit_Replace_Extensions(bpy.types.Operator):
 # Display in Node panel
 
 class PRODUCTIONKIT_PT_update_images_ui(bpy.types.Panel):
+	bl_label = "Update Images"
 	bl_space_type = 'NODE_EDITOR'
 	bl_region_type = 'UI'
 	bl_category = "Node"
-	bl_label = "Update Images"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
 	
 	def draw(self, context):
 		prefs = context.preferences.addons[__package__].preferences
@@ -131,3 +133,33 @@ class PRODUCTIONKIT_PT_update_images_ui(bpy.types.Panel):
 def production_kit_update_images_menu_item(self, context):
 	self.layout.separator()
 	self.layout.operator(Production_Kit_Update_Images.bl_idname)
+
+
+
+# ---------------------------------------------------------------------------
+# Register classes
+# ---------------------------------------------------------------------------
+
+classes = [
+	Production_Kit_Update_Images,
+	Production_Kit_Switch_Extension_Inputs,
+	Production_Kit_Replace_Extensions,
+	PRODUCTIONKIT_PT_update_images_ui,
+]
+
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+	bpy.types.IMAGE_MT_image.append(production_kit_update_images_menu_item)
+
+
+def unregister():
+	bpy.types.IMAGE_MT_image.remove(production_kit_update_images_menu_item)
+	for cls in reversed(classes):
+		bpy.utils.unregister_class(cls)
+
+
+if __name__ == "__main__":
+	register()
+	

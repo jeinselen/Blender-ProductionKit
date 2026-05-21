@@ -6,8 +6,8 @@ from mathutils import Vector, Euler
 
 class OBJECT_OT_cycle_transforms(bpy.types.Operator):
 	"""Cycle transforms of selected objects"""
-	bl_idname = "object.cycle_transforms"
 	bl_label = "Cycle Item Transforms"
+	bl_idname = "object.cycle_transforms"
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod

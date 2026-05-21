@@ -139,13 +139,13 @@ def load_palette_from_file(filepath):
 # UI rendering class
 
 class PRODUCTIONKIT_PT_colorPalette(bpy.types.Panel):
+	bl_label = "Color Palette"
+	bl_idname = "PRODUCTIONKIT_PT_colorPalette"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Launch"
-	bl_order = 4
+	bl_order = 21
 	bl_options = {'DEFAULT_CLOSED'}
-	bl_label = "Color Palette"
-	bl_idname = "PRODUCTIONKIT_PT_colorPalette"
 	
 	@classmethod
 	def poll(cls, context):
@@ -210,3 +210,37 @@ class PRODUCTIONKIT_PT_colorPalette(bpy.types.Panel):
 				
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit palette panel")
+
+
+
+# ---------------------------------------------------------------------------
+# Register classes
+# ---------------------------------------------------------------------------
+
+classes = [
+	ColorPaletteProperty,
+	AddColorOperator,
+	RemoveColorOperator,
+	ReorderColorOperator,
+	CopyColorOperator,
+	EditPaletteOperator,
+	SavePaletteOperator,
+	LoadPaletteOperator,
+	PRODUCTIONKIT_PT_colorPalette,
+]
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
+
+
+def unregister():
+	del bpy.types.Scene.palette_local
+	for cls in reversed(classes):
+		bpy.utils.unregister_class(cls)
+
+
+if __name__ == "__main__":
+	register()
+	

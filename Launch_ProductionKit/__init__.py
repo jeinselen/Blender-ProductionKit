@@ -7,14 +7,14 @@ from shutil import which
 # Local imports
 from . import audio_waveforms
 from . import bpm_overlay
-from .color_palette import ColorPaletteProperty, AddColorOperator, RemoveColorOperator, ReorderColorOperator, CopyColorOperator, EditPaletteOperator, SavePaletteOperator, LoadPaletteOperator, PRODUCTIONKIT_PT_colorPalette
+from . import color_palette
 from . import cycle_transforms
 from . import driver_functions
 from . import transfer_to_scene
-from .project_version import PRODUCTIONKIT_OT_SaveProjectVersion, TOPBAR_MT_file_save_version
-from .update_images import Production_Kit_Update_Images, Production_Kit_Switch_Extension_Inputs, Production_Kit_Replace_Extensions, PRODUCTIONKIT_PT_update_images_ui, production_kit_update_images_menu_item
+from . import project_version
+from . import update_images
 from . import vertex_locations
-from .viewport_shading import PRODUCTIONKIT_OT_set_viewport_shading, production_kit_viewport_shading_menu_items
+from . import viewport_shading
 
 
 
@@ -297,12 +297,12 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	def update_palette_category(self, context):
 		category = bpy.context.preferences.addons[__package__].preferences.palette_category
 		try:
-			bpy.utils.unregister_class(PRODUCTIONKIT_PT_colorPalette)
+			bpy.utils.unregister_class(color_palette.PRODUCTIONKIT_PT_colorPalette)
 		except RuntimeError:
 			pass
 		if len(category) > 0:
-			PRODUCTIONKIT_PT_colorPalette.bl_category = category
-			bpy.utils.register_class(PRODUCTIONKIT_PT_colorPalette)
+			color_palette.PRODUCTIONKIT_PT_colorPalette.bl_category = category
+			bpy.utils.register_class(color_palette.PRODUCTIONKIT_PT_colorPalette)
 	
 	palette_category: bpy.props.StringProperty(
 		name="Palette Panel",
@@ -962,6 +962,8 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Launch"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
 	
 	def draw(self, context):
 		layout = self.layout
@@ -991,25 +993,8 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 classes = (
 	ProductionKitPreferences,
 	ProductionKitSettings,
-	ColorPaletteProperty,
-	AddColorOperator,
-	RemoveColorOperator,
-	ReorderColorOperator,
-	CopyColorOperator,
-	EditPaletteOperator,
-	SavePaletteOperator,
-	LoadPaletteOperator,
-	PRODUCTIONKIT_PT_colorPalette,
-	PRODUCTIONKIT_OT_SaveProjectVersion,
-	Production_Kit_Update_Images,
-	Production_Kit_Switch_Extension_Inputs,
-	Production_Kit_Replace_Extensions,
-	PRODUCTIONKIT_PT_update_images_ui,
-	PRODUCTIONKIT_OT_set_viewport_shading,
 	VIEW3D_PT_timeline_overlays
 )
-
-keymaps = []
 
 
 
@@ -1022,16 +1007,6 @@ def register():
 	bpy.types.Scene.production_kit_settings = bpy.props.PointerProperty(type=ProductionKitSettings)
 	
 	
-	########## Project Version ##########
-	# Add project version to file menu
-	bpy.types.TOPBAR_MT_file.append(TOPBAR_MT_file_save_version)
-	
-	
-	########## Update Images ##########
-	# Add image refresh button to the image menu
-	bpy.types.IMAGE_MT_image.append(production_kit_update_images_menu_item)
-	
-	
 	########## Audio Waveforms FFmpeg Check ##########
 	bpy.context.preferences.addons[__package__].preferences.check_ffmpeg_location()
 	
@@ -1039,105 +1014,29 @@ def register():
 	########## Register Components ##########
 	audio_waveforms.register()
 	bpm_overlay.register()
+	color_palette.register()
 	cycle_transforms.register()
 	driver_functions.register()
+	project_version.register()
 	transfer_to_scene.register()
+	update_images.register()
 	vertex_locations.register()
-	
-	
-	########## Colour Palette ##########
-	# Add local scene settings
-	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
-	
-	
-	########## Viewport Shading ##########
-	bpy.types.VIEW3D_MT_view.append(production_kit_viewport_shading_menu_items)
-	
-	
-	# Add keymaps for project versioning and viewport shading
-	wm = bpy.context.window_manager
-	kc = wm.keyconfigs.addon
-	if kc:
-		
-		########## Project Version ##########
-		
-		# Linux/Windows Increment/Increment Minor
-		km = wm.keyconfigs.addon.keymaps.new(name='Window')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', ctrl=True, alt=True, shift=True)
-		kmi.properties.increment_major = False
-		keymaps.append((km, kmi))
-		
-		## MacOS Increment/Increment Minor
-		km = wm.keyconfigs.addon.keymaps.new(name='Window')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', oskey=True, alt=True, shift=True)
-		kmi.properties.increment_major = False
-		keymaps.append((km, kmi))
-		
-		## MacOS Increment Major
-		km = wm.keyconfigs.addon.keymaps.new(name='Window')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_SaveProjectVersion.bl_idname, 'S', 'PRESS', oskey=True, ctrl=True, alt=True, shift=True)
-		kmi.properties.increment_major = True
-		keymaps.append((km, kmi))
-		
-		########## Viewport Shading ##########
-		
-		km = wm.keyconfigs.addon.keymaps.new(name='3D View', space_type='VIEW_3D')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'NUMPAD_1', 'PRESS')
-#		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'F1', 'PRESS', alt=True)
-		kmi.properties.rendertype = 'WIREFRAME'
-		keymaps.append((km, kmi))
-		
-		km = wm.keyconfigs.addon.keymaps.new(name='3D View', space_type='VIEW_3D')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'NUMPAD_2', 'PRESS')
-#		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'F2', 'PRESS', alt=True)
-		kmi.properties.rendertype = 'SOLID'
-		keymaps.append((km, kmi))
-		
-		km = wm.keyconfigs.addon.keymaps.new(name='3D View', space_type='VIEW_3D')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'NUMPAD_3', 'PRESS')
-#		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'F3', 'PRESS', alt=True)
-		kmi.properties.rendertype = 'MATERIAL'
-		keymaps.append((km, kmi))
-		
-		km = wm.keyconfigs.addon.keymaps.new(name='3D View', space_type='VIEW_3D')
-		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'NUMPAD_0', 'PRESS')
-#		kmi = km.keymap_items.new(PRODUCTIONKIT_OT_set_viewport_shading.bl_idname, 'F4', 'PRESS', alt=True)
-		kmi.properties.rendertype = 'RENDERED'
-		keymaps.append((km, kmi))
+	viewport_shading.register()
 
 
 
 def unregister():
-	# Remove keymaps
-	for km, kmi in keymaps:
-		km.keymap_items.remove(kmi)
-	keymaps.clear()
-	
-	
-	########## Project Version ##########
-	bpy.types.TOPBAR_MT_file.remove(TOPBAR_MT_file_save_version)
-	
-	
-	########## Update Images ##########
-	bpy.types.IMAGE_MT_image.remove(production_kit_update_images_menu_item)
-	
-	
-	########## Colour Palette ##########
-	# Remove local scene settings
-	del bpy.types.Scene.palette_local
-	
-	
 	########## Unregister Components ##########
 	audio_waveforms.unregister()
 	bpm_overlay.unregister()
+	color_palette.unregister()
 	cycle_transforms.unregister()
 	driver_functions.unregister()
+	project_version.unregister()
 	transfer_to_scene.unregister()
+	update_images.unregister()
 	vertex_locations.unregister()
-	
-	
-	########## Viewport Shading ##########
-	bpy.types.VIEW3D_MT_view.remove(production_kit_viewport_shading_menu_items)
+	viewport_shading.unregister()
 	
 	
 	# Remove extension settings reference
@@ -1151,3 +1050,4 @@ def unregister():
 
 if __package__ == "__main__":
 	register()
+	
