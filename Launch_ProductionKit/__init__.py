@@ -766,6 +766,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name='Easing',
 		description='Ease type',
 		items=[
+			# Basic interpolations
 			('linear', 'Linear', 'No interpolation, passes the input value without change'),
 			('smooth', 'Smooth', 'Smoothstep interpolation'),
 #			('smoothx', 'Smooth x2', 'Smoothstep interpolation calculated twice for extra-crazy-smooth results'),
@@ -774,12 +775,26 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('quad', 'Quad', 'Quadratic curvature'),
 			('cubic', 'Cubic', 'Cubic curvature'),
 			('quart', 'Quartic', 'Quartic curvature'),
-			('quint', 'Quintic', 'Quinctic curvature'),
+			('quint', 'Quintic', 'Quintic curvature'),
 			('expo', 'Exponential', 'Exponential curvature'),
 			('circ', 'Circular', 'Circular curvature'),
-			('back', 'Back (rebound)', 'Overshoots the source and/or target values'),
+			('', '', ''),
+			# Non-monotonic formulas (forward/backward movement)
+			('back', 'Back (anticipation/rebound)', 'Overshoots the source and/or target values'),
 			('elastic', 'Elastic', 'Springy oscillation from or to source and target values'),
 			('bounce', 'Bounce', 'Gravitational bounce from or to source and target values'),
+			('', '', ''),
+			# Inverted monotonic formulas
+			('inv_smooth', 'Inverted Smooth', 'Smoothstep interpolation, inverted for fast entry/exit instead of slow'),
+#			('inv_smoothx', 'Inverted Smooth x2', 'Smoothstep interpolation calculated twice for extra-crazy-smooth results, inverted for fast entry/exit instead of slow'),
+#			('inv_smoother', 'Inverted Smoother', 'Smootherstep interpolation, inverted for fast entry/exit instead of slow'),
+			('inv_sine', 'Inverted Sine', 'Sine wave curvature, inverted for fast entry/exit instead of slow'),
+			('inv_quad', 'Inverted Quad', 'Quadratic curvature, inverted for fast entry/exit instead of slow'),
+			('inv_cubic', 'Inverted Cubic', 'Cubic curvature, inverted for fast entry/exit instead of slow'),
+			('inv_quart', 'Inverted Quartic', 'Quartic curvature, inverted for fast entry/exit instead of slow'),
+			('inv_quint', 'Inverted Quintic', 'Quintic curvature, inverted for fast entry/exit instead of slow'),
+			('inv_expo', 'Inverted Exponential', 'Exponential curvature, inverted for fast entry/exit instead of slow'),
+			('inv_circ', 'Inverted Circular', 'Circular curvature, inverted for fast entry/exit instead of slow'),
 			],
 		default='linear')
 	driver_ease_direction: bpy.props.EnumProperty(

@@ -30,7 +30,7 @@ def ease_in_out_smoother(t):
 def ease_in_sine(t): return 1 - math.cos((t * math.pi) / 2)
 def ease_out_sine(t): return math.sin((t * math.pi) / 2)
 def ease_in_out_sine(t): return -(math.cos(math.pi * t) - 1) / 2
-	
+
 # QUAD
 def ease_in_quad(t): return t * t
 def ease_out_quad(t): return 1 - (1 - t) * (1 - t)
@@ -55,6 +55,7 @@ def ease_out_quint(t): return 1 - pow(1 - t, 5)
 def ease_in_out_quint(t):
 	return 16 * t ** 5 if t < 0.5 else 1 - pow(-2 * t + 2, 5) / 2
 
+# EXPO
 def ease_in_expo(t):
 	return 0 if t == 0 else pow(2, 10 * t - 10)
 def ease_out_expo(t):
@@ -115,6 +116,63 @@ def ease_out_bounce(t):
 def ease_in_bounce(t): return 1 - ease_out_bounce(1 - t)
 def ease_in_out_bounce(t):
 	return (1 - ease_out_bounce(1 - 2 * t)) / 2 if t < 0.5 else (1 + ease_out_bounce(2 * t - 1)) / 2
+
+# Inverted functions (mirrored along x=y linear diagonal) for fast in/out instead of slow
+# Only supports monotonic formulas, smootherstep skipped due to complexity
+
+# Helper functions
+def clamp01(x): return max(0.0, min(1.0, x))
+
+# INV_SMOOTH
+def inv_ease_in_out_smooth(x): return 0.5 - math.sin(math.asin(1.0 - 2.0 * x) / 3.0)
+def inv_ease_in_smooth(x): return 2.0 * inv_ease_in_out_smooth(x * 0.5)
+def inv_ease_out_smooth(x): return 2.0 * inv_ease_in_out_smooth((x + 1.0) * 0.5) - 1.0
+
+# INV_SMOOTHX
+def inv_ease_in_out_smoothx(x): return inv_ease_in_out_smooth(inv_ease_in_out_smooth(x))
+def inv_ease_in_smoothx(x): return 2.0 * inv_ease_in_out_smoothx(x * 0.5)
+def inv_ease_out_smoothx(x): return 2.0 * inv_ease_in_out_smoothx((x + 1.0) * 0.5) - 1.0
+
+# INV_SINE
+def inv_ease_in_sine(x): return (2.0 / math.pi) * math.acos(1.0 - x)
+def inv_ease_out_sine(x): return (2.0 / math.pi) * math.asin(x)
+def inv_ease_in_out_sine(x): return math.acos(1.0 - 2.0 * x) / math.pi
+
+# INV_QUAD
+def inv_ease_in_quad(x): return math.sqrt(x)
+def inv_ease_out_quad(x): return 1.0 - math.sqrt(1.0 - x)
+def inv_ease_in_out_quad(x): return math.sqrt(x * 0.5) if x < 0.5 else 1.0 - math.sqrt((1.0 - x) * 0.5)
+
+# INV_CUBIC
+def cbrt(x): return math.copysign(abs(x) ** (1.0 / 3.0), x)
+def inv_ease_in_cubic(x): return cbrt(x)
+def inv_ease_out_cubic(x): return 1.0 - cbrt(1.0 - x)
+def inv_ease_in_out_cubic(x): return cbrt(x * 0.25) if x < 0.5 else 1.0 - cbrt((1.0 - x) * 0.25)
+
+# INV_QUART
+def inv_ease_in_quart(x): return x ** 0.25
+def inv_ease_out_quart(x): return 1.0 - ((1.0 - x) ** 0.25)
+def inv_ease_in_out_quart(x): return (x / 8.0) ** 0.25 if x < 0.5 else 1.0 - ((1.0 - x) / 8.0) ** 0.25
+
+# INV_QUINT
+def inv_ease_in_quint(x): return x ** 0.2
+def inv_ease_out_quint(x): return 1.0 - ((1.0 - x) ** 0.2)
+def inv_ease_in_out_quint(x): return (x / 16.0) ** 0.2 if x < 0.5 else 1.0 - ((1.0 - x) / 16.0) ** 0.2
+
+# INV_EXPO
+def inv_ease_in_expo(x): return 0.0 if x <= 0.0 else clamp01((math.log2(x) + 10.0) / 10.0)
+def inv_ease_out_expo(x): return 1.0 if x >= 1.0 else clamp01(-math.log2(1.0 - x) / 10.0)
+def inv_ease_in_out_expo(x):
+	if x <= 0.0: return 0.0
+	if x >= 1.0: return 1.0
+	return clamp01((math.log2(2.0 * x) + 10.0) / 20.0) if x < 0.5 else clamp01((10.0 - math.log2(2.0 * (1.0 - x))) / 20.0)
+
+# INV_CIRC
+def inv_ease_in_circ(x): return math.sqrt(1.0 - (1.0 - x) * (1.0 - x))
+def inv_ease_out_circ(x): return 1.0 - math.sqrt(1.0 - x * x)
+def inv_ease_in_out_circ(x): return 0.5 * math.sqrt(1.0 - (1.0 - 2.0 * x) ** 2) if x < 0.5 else 1.0 - 0.5 * math.sqrt(1.0 - (2.0 * x - 1.0) ** 2)
+
+
 
 # Library
 easing_functions = {
@@ -187,6 +245,51 @@ easing_functions = {
 		"in": ease_in_bounce,
 		"out": ease_out_bounce,
 		"inout": ease_in_out_bounce
+	},
+	"inv_smooth": {
+		"in": inv_ease_in_smooth,
+		"out": inv_ease_out_smooth,
+		"inout": inv_ease_in_out_smooth
+	},
+	"inv_smoothx": {
+		"in": inv_ease_in_smoothx,
+		"out": inv_ease_out_smoothx,
+		"inout": inv_ease_in_out_smoothx
+	},
+	"inv_sine": {
+		"in": inv_ease_in_sine,
+		"out": inv_ease_out_sine,
+		"inout": inv_ease_in_out_sine
+	},
+	"inv_quad": {
+		"in": inv_ease_in_quad,
+		"out": inv_ease_out_quad,
+		"inout": inv_ease_in_out_quad
+	},
+	"inv_cubic": {
+		"in": inv_ease_in_cubic,
+		"out": inv_ease_out_cubic,
+		"inout": inv_ease_in_out_cubic
+	},
+	"inv_quart": {
+		"in": inv_ease_in_quart,
+		"out": inv_ease_out_quart,
+		"inout": inv_ease_in_out_quart
+	},
+	"inv_quint": {
+		"in": inv_ease_in_quint,
+		"out": inv_ease_out_quint,
+		"inout": inv_ease_in_out_quint
+	},
+	"inv_expo": {
+		"in": inv_ease_in_expo,
+		"out": inv_ease_out_expo,
+		"inout": inv_ease_in_out_expo
+	},
+	"inv_circ": {
+		"in": inv_ease_in_circ,
+		"out": inv_ease_out_circ,
+		"inout": inv_ease_in_out_circ
 	}
 }
 
