@@ -1,6 +1,7 @@
 import bpy
 import math
 from bpy.app.handlers import persistent
+from bpy_extras import anim_utils
 from colorsys import hsv_to_rgb
 from mathutils import noise
 
@@ -307,15 +308,32 @@ def get_ease(time, ease_type, direction):
 
 ########## Driver Functions
 
+#	Slot-aware F-curve access (Blender 4.4+ "Slotted Actions")
+#	Blender 5.0 removed the legacy Action.fcurves API; F-curves now live on a
+#	channelbag belonging to the action's assigned slot. Returns the fcurves
+#	collection for the object's active action slot, or None if unavailable.
+def _action_fcurves(obj):
+	ad = obj.animation_data
+	if not (ad and ad.action):
+		return None
+	cb = anim_utils.action_get_channelbag_for_slot(ad.action, ad.action_slot)
+	return cb.fcurves if cb else None
+
+
+
 #	curveAtTime(item name, animation curve index, sample time in frames)
 #	curveAtTime("Cube", 0, frame-5)
 #	returns the "Cube" object's first animation curve value 5 frames in the past
 #	Blender requires an animation curve to get non-current-frame data
 #	Blender doesn't reference animation curves by type or name, only numerical index
 def curve_at_time(name, channel, frame):
-	obj = bpy.data.objects[name]
-	fcurve = obj.animation_data.action.fcurves[channel]
-	return fcurve.evaluate(frame)
+	obj = bpy.data.objects.get(name)
+	if obj is None:
+		return 0.0
+	fcurves = _action_fcurves(obj)
+	if not fcurves or channel < 0 or channel >= len(fcurves):
+		return 0.0
+	return fcurves[channel].evaluate(frame)
 
 
 
@@ -650,7 +668,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			if settings.driver_select == 'CURVE':
 				if context.active_object:
 					obj = context.active_object
-					if obj.animation_data and obj.animation_data.action and obj.animation_data.action.fcurves:
+					if _action_fcurves(obj):
 						col.prop(settings, 'driver_curve_channel')
 						col.prop(settings, 'driver_curve_offset')
 						

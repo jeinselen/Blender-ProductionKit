@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "Launch_Production_Kit"
 name = "Launch Production Kit"
-version = "0.1.6"
+version = "0.1.7"
 tagline = "Production shortcuts and toolsets"
 maintainer = "John Einselen <jeinselen@gmail.com>"
 website = "https://github.com/jeinselen/Blender-ProductionKit"
@@ -11,7 +11,7 @@ type = "add-on"
 # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
 tags = ["Material", "Pipeline", "Render", "Scene"]
 
-blender_version_min = "4.2.0"
+blender_version_min = "4.4.0"
 blender_version_max = "5.9.9"
 
 # License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)

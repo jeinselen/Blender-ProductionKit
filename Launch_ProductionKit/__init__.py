@@ -716,10 +716,10 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		items = []
 		if context.active_object:
 			obj = context.active_object
-			if obj.animation_data:
-				if obj and obj.animation_data and obj.animation_data.action:
-					action = obj.animation_data.action
-					for index, fcurve in enumerate(action.fcurves):
+			# Blender 5.0 removed Action.fcurves; use the slot-aware channelbag helper
+			fcurves = driver_functions._action_fcurves(obj)
+			if fcurves:
+					for index, fcurve in enumerate(fcurves):
 						# Get base property name and index
 						data_path = fcurve.data_path
 						array_index = fcurve.array_index
