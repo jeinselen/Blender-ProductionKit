@@ -38,9 +38,10 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	version_path: bpy.props.StringProperty(
 		name="Path",
 		description="Leave a single forward slash to auto generate folders alongside project files",
+		subtype="DIR_PATH",
+		options={'OUTPUT_PATH','PATH_SUPPORTS_BLEND_RELATIVE','SUPPORTS_TEMPLATES'},
 		default="//_Archive",
-		maxlen=4096,
-		subtype="DIR_PATH")
+		maxlen=4096)
 	version_separator: bpy.props.StringProperty(
 		name="Separator",
 		description="separator between the project name and the version number",
@@ -313,9 +314,10 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	palette_file_location: bpy.props.StringProperty(
 		name = "Palette Location",
 		description = "Location of the palette library saved alongside the project file (should always be a relative path)",
+		subtype="DIR_PATH",
+		options={'OUTPUT_PATH','PATH_SUPPORTS_BLEND_RELATIVE','SUPPORTS_TEMPLATES'},
 		default = "//",
-		maxlen = 4096,
-		subtype = "DIR_PATH")
+		maxlen = 4096)
 	palette_file_name: bpy.props.StringProperty(
 		name = "Palette Name",
 		description = "Name of the plain text library file",
