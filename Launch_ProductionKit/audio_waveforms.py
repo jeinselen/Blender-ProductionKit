@@ -4,6 +4,8 @@ import subprocess
 import gpu
 from gpu_extras.batch import batch_for_shader
 
+from . import utility_panel
+
 # Store waveform images for drawing the overlay
 waveform_overlays = []
 draw_handler = None
@@ -205,6 +207,7 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 	bl_category = "Launch"
 	bl_order = 20
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_dopesheet"
 	
 	@classmethod
 	def poll(cls, context):
@@ -222,15 +225,17 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 # Register classes
 # ---------------------------------------------------------------------------
 
-classes = [
-	RegenerateWaveformsOperator,
-	DOPESHEET_PT_waveform_display,
-]
+classes = [RegenerateWaveformsOperator]
+panels = [DOPESHEET_PT_waveform_display]
 
 
 def register():
+	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
+	# Register panels
+	utility_panel.register_panels(panels)
+	
 	global draw_handler
 	if draw_handler is None:
 		draw_handler = bpy.types.SpaceDopeSheetEditor.draw_handler_add(
@@ -247,9 +252,17 @@ def unregister():
 		draw_handler = None
 	if _on_load_post in bpy.app.handlers.load_post:
 		bpy.app.handlers.load_post.remove(_on_load_post)
+	
+	# Unregister panels
+	utility_panel.unregister_panels(panels)
+	# Unregister classes
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()

@@ -2,6 +2,8 @@ import bpy
 from bpy.app.handlers import persistent
 import random
 
+from . import utility_panel
+
 ###########################################################################
 # Main class
 
@@ -72,6 +74,7 @@ class PRODUCTIONKIT_PT_vertexLocation(bpy.types.Panel):
 	bl_category = 'Launch'
 	bl_order = 23
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "keyframes_category"
 	
 	@classmethod
 	def poll(cls, context):
@@ -121,16 +124,30 @@ class PRODUCTIONKIT_PT_vertexLocation(bpy.types.Panel):
 ###########################################################################
 # Addon registration functions
 
-classes = (SetVertexLocationKeyframes, PRODUCTIONKIT_PT_vertexLocation)
+classes = (SetVertexLocationKeyframes,)
+
+panels = [PRODUCTIONKIT_PT_vertexLocation]
+
 
 def register():
+	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
+	# Register panels
+	utility_panel.register_panels(panels)
+
 
 def unregister():
+	# Unregister panels
+	utility_panel.unregister_panels(panels)
+	# Unregister classes
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
+
 if __name__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()
-	

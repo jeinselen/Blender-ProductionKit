@@ -10,6 +10,7 @@ from . import bpm_overlay
 from . import color_palette
 from . import cycle_transforms
 from . import driver_functions
+from . import utility_panel
 from . import transfer_to_scene
 from . import project_version
 from . import update_images
@@ -59,6 +60,10 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		name='Compression',
 		description='Compresses versioned files, or for Alphanumeric, compresses the main project when saving',
 		default=True)
+	version_auto: bpy.props.BoolProperty(
+		name='Detect Alphanumeric',
+		description='Recognises if the current project file already has an alphanumeric serial number, and uses that versioning type automatically',
+		default=True)
 	version_keepbackup: bpy.props.BoolProperty(
 		name='Keep .blend1',
 		description='Keeps the .blend1 backup file alongside the archived project',
@@ -67,14 +72,20 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		name='Success Popup',
 		description='Confirms successful version saving with a popup panel',
 		default=False)
-	version_auto: bpy.props.BoolProperty(
-		name='Detect Alphanumeric',
-		description='Recognises if the current project file already has an alphanumeric serial number, and uses that versioning type automatically',
-		default=True)
 	
 	
 	
 	########## Update Images ##########
+	
+	def update_images_category(self, context):
+		utility_panel.register_panels(update_images.panels)
+		
+	images_category: bpy.props.StringProperty(
+		name="Node Editor",
+		description="Choose a node editor tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="Node",
+		update=update_images_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
 	
 	# Global variables
 	enable_file_reload: bpy.props.BoolProperty(
@@ -116,7 +127,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			('NONE', 'None', 'Ignore alpha channel')
 			],
 		default='STRAIGHT')
-
+	
 	filter2_name: bpy.props.StringProperty(
 		name="Filter Name",
 		description="String to match in the image name",
@@ -146,7 +157,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			('NONE', 'None', 'Ignore alpha channel')
 			],
 		default='CHANNEL_PACKED')
-
+	
 	filter3_name: bpy.props.StringProperty(
 		name="Filter Name",
 		description="String to match in the image name",
@@ -176,7 +187,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			('NONE', 'None', 'Ignore alpha channel')
 			],
 		default='CHANNEL_PACKED')
-
+	
 	filter4_name: bpy.props.StringProperty(
 		name="Filter Name",
 		description="String to match in the image name",
@@ -206,7 +217,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			('NONE', 'None', 'Ignore alpha channel')
 			],
 		default='STRAIGHT')
-
+	
 	filter5_name: bpy.props.StringProperty(
 		name="Filter Name",
 		description="String to match in the image name",
@@ -239,8 +250,31 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	
 	
 	
-	########## Audio Waveforms ##########
+	########## Timeline Overlays ##########
 	
+	# 3D View panel category
+	def update_overlays_category(self, context):
+		utility_panel.register_panel(VIEW3D_PT_timeline_overlays)
+		
+	overlays_category: bpy.props.StringProperty(
+		name="3D View",
+		description="Choose a 3D view tab category for the combined waveform and BPM panel to be placed in, or leave empty to hide the panel",
+		default="Launch",
+		update=update_overlays_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	
+	# Dopesheet panel category, shared by both audio waveform and BPM panels
+	def update_overlays_category_dopesheet(self, context):
+		utility_panel.register_panels(audio_waveforms.panels + bpm_overlay.panels)
+	
+	overlays_category_dopesheet: bpy.props.StringProperty(
+		name="Dopesheet",
+		description="Choose a dopesheet tab category for the waveform and BPM panels to be placed in, or leave empty to hide the panels",
+		default="View",
+		update=update_overlays_category_dopesheet)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	
+	# General preference settings
 	waveform_size_x: bpy.props.IntProperty(
 		name="Waveform Size X",
 		description="Horizontal resolution multiplier",
@@ -260,7 +294,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	
 	ffmpeg_processing: bpy.props.BoolProperty(
 		name='Enable Waveform Display',
-		description='Enables audio waveform generation using FFmpeg and turns on the drop track UI panel',
+		description='Enables audio waveform generation using FFmpeg and turns on the dopetrack UI panel',
 		default=True)
 	ffmpeg_location: bpy.props.StringProperty(
 		name="FFmpeg location",
@@ -296,20 +330,24 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	########## Colour Palette ##########
 	
 	def update_palette_category(self, context):
-		category = bpy.context.preferences.addons[__package__].preferences.palette_category
-		try:
-			bpy.utils.unregister_class(color_palette.PRODUCTIONKIT_PT_colorPalette)
-		except RuntimeError:
-			pass
-		if len(category) > 0:
-			color_palette.PRODUCTIONKIT_PT_colorPalette.bl_category = category
-			bpy.utils.register_class(color_palette.PRODUCTIONKIT_PT_colorPalette)
+		utility_panel.register_panel(color_palette.PRODUCTIONKIT_PT_colorPalette)
 	
+	def update_palette_category_nodes(self, context):
+		utility_panel.register_panel(color_palette.PRODUCTIONKIT_PT_colorPaletteNode)
+	
+	# 3D View tab
 	palette_category: bpy.props.StringProperty(
-		name="Palette Panel",
-		description="Choose a category for the panel to be placed in",
+		name="3D View",
+		description="Choose a 3D view tab category for the panel to be placed in, or leave empty to hide the panel",
 		default="Launch",
 		update=update_palette_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	# Node editor tab
+	palette_category_nodes: bpy.props.StringProperty(
+		name="Node Editor",
+		description="Choose a node editor tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="",
+		update=update_palette_category_nodes)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
 	palette_file_location: bpy.props.StringProperty(
 		name = "Palette Location",
@@ -329,18 +367,12 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	########## Driver Functions ##########
 	
 	def update_drivers_category(self, context):
-		category = bpy.context.preferences.addons[__package__].preferences.drivers_category
-		try:
-			bpy.utils.unregister_class(driver_functions.PRODUCTIONKIT_PT_driverFunctions)
-		except RuntimeError:
-			pass
-		if len(category) > 0:
-			driver_functions.PRODUCTIONKIT_PT_driverFunctions.bl_category = category
-			bpy.utils.register_class(driver_functions.PRODUCTIONKIT_PT_driverFunctions)
-			
+		# Includes the Find & Replace subpanel, which must follow its parent
+		utility_panel.register_panels(driver_functions.panels)
+	
 	drivers_category: bpy.props.StringProperty(
-		name="Keyframes Panel",
-		description="Choose a category for the panel to be placed in",
+		name="3D View",
+		description="Choose a 3D view tab category for the panel to be placed in, or leave empty to hide the panel",
 		default="Launch",
 		update=update_drivers_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
@@ -350,18 +382,11 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	########## Vertex Location Keyframes ##########
 	
 	def update_keyframes_category(self, context):
-		category = bpy.context.preferences.addons[__package__].preferences.keyframes_category
-		try:
-			bpy.utils.unregister_class(vertex_locations.PRODUCTIONKIT_PT_vertexLocation)
-		except RuntimeError:
-			pass
-		if len(category) > 0:
-			vertex_locations.PRODUCTIONKIT_PT_vertexLocation.bl_category = category
-			bpy.utils.register_class(vertex_locations.PRODUCTIONKIT_PT_vertexLocation)
+		utility_panel.register_panels(vertex_locations.panels)
 	
 	keyframes_category: bpy.props.StringProperty(
-		name="Keyframes Panel",
-		description="Choose a category for the panel to be placed in",
+		name="3D View",
+		description="Choose a 3D view tab category for the panel to be placed in, or leave empty to hide the panel",
 		default="Launch",
 		update=update_keyframes_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
@@ -378,34 +403,32 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		
 		########## Project Version ##########
 		
+		# Create Info Strings
+		if self.version_type == 'ALPHANUM':
+#			info = 'Saves project with new name, archives previous file'
+			info_file = 'SAVE: ProjectName' + self.version_separator
+			version_length = format(self.version_length - 1, '02')
+			info_file += format(1, version_length) + "b.blend  +  COPY: " + self.version_path + '...' + format(1, version_length) + 'a.blend'
+		else:
+#			info = 'Copies project to archive with '
+			info_file = "COPY: " + os.path.join(self.version_path, 'ProjectName') + self.version_separator
+			if self.version_type == 'TIME':
+#				info += 'date and time'
+				info_file += 'YYYY-MM-DD-HH-MM-SS'
+			else:
+#				info += 'automatic serial number'
+				version_length = format(self.version_length, '02')
+				info_file += format(1, version_length)
+			info_file += '.blend'
+		
 		layout.label(text="Save Project Version", icon="FILE") # FILE CURRENT_FILE FILE_BLEND DUPLICATE
 		
 		# Alignment Column
 		col = layout.column(align=True)
-		
-		# Create Info Strings
-		if self.version_type == 'ALPHANUM':
-			info = 'Saves project with new name, archives previous file'
-			info_file = 'ProjectName' + self.version_separator
-			version_length = format(self.version_length - 1, '02')
-			info_file += format(1, version_length) + "b.blend,    " + self.version_path + '...' + format(1, version_length) + 'a.blend'
-		else:
-			info = 'Copies project to archive with '
-			info_file = os.path.join(self.version_path, 'ProjectName') + self.version_separator
-			if self.version_type == 'TIME':
-				info += 'date and time'
-				info_file += 'YYYY-MM-DD-HH-MM-SS'
-			else:
-				info += 'automatic serial number'
-				version_length = format(self.version_length, '02')
-				info_file += format(1, version_length)
-			info_file += '.blend'
-			
+
 		# Display Info
-		box = col.box()
-		col2 = box.column(align=True)
-		col2.label(text=info)
-		col2.label(text=info_file)
+#		col.label(text=info)
+		col.label(text=info_file)
 		
 		# Versioning Type
 		row = col.row(align=True)
@@ -421,10 +444,10 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			row.prop(self, "version_length")
 		
 		# Settings Checkboxes
-		grid0 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
+		grid0 = layout.grid_flow(row_major=True, columns=4, even_columns=True, even_rows=False, align=False)
 		grid0.prop(self, "version_compress")
-		grid0.prop(self, "version_popup")
 		grid0.prop(self, "version_auto")
+		grid0.prop(self, "version_popup")
 		if self.version_type == 'ALPHANUM' or self.version_auto:
 			grid0.prop(self, "version_keepbackup")
 		
@@ -433,13 +456,13 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		########## Update Images ##########
 		
 		layout.separator(factor = 2.0)
-		layout.label(text="Update Image Files", icon="IMAGE") # IMAGE IMAGE_DATA FILE_IMAGE NODE_TEXTURE
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Update Image Files", icon="IMAGE") # IMAGE IMAGE_DATA FILE_IMAGE NODE_TEXTURE
+		titlegrid.prop(self, "images_category", text="", icon="NODETREE")
+		titlegrid.prop(self, "enable_file_format")
+		titlegrid.prop(self, "enable_file_reload")
 		
-		grid1 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
-		grid1.prop(self, "enable_file_reload")
-		grid1.prop(self, "enable_file_format")
-		
-		grid = layout.grid_flow(row_major=True, columns=2, even_columns=False, even_rows=False, align=False)
+		grid = layout.grid_flow(row_major=True, columns=2, even_columns=False, even_rows=True, align=False)
 		if not self.enable_file_format:
 			grid.enabled = False
 		
@@ -480,10 +503,14 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		
 		
 		
-		########## Audio Waveform ##########
+		########## Timeline Overlays ##########
 		
 		layout.separator(factor = 2.0)
-		layout.label(text="Audio Waveform", icon="COLOR") # COLOR
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Timeline Overlays", icon="TIME")
+		row = titlegrid.row()
+		row.prop(self, "overlays_category", text="", icon="VIEW3D")
+		row.prop(self, "overlays_category_dopesheet", text="", icon="ACTION") # ACTION CON_ACTION ACTION_TWEAK ACTION_SLOT NLA NLA_PUSHDOWN TIME OVERLAY
 		
 		grid2 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
 		grid2.prop(self, "ffmpeg_processing")
@@ -497,31 +524,39 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			input.label(text="✔︎ installed")
 		else:
 			input.label(text="✘ missing")
-		grid2.separator()
-		input = grid2.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
-		if not self.ffmpeg_processing:
-			input.active = False
-			input.enabled = False
 		
 		
 		
 		########## Colour Palette ##########
 		
 		layout.separator(factor = 2.0)
-		layout.label(text="Color Palette", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Color Palette", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF
+		row = titlegrid.row()
+		row.prop(self, "palette_category", text="", icon="VIEW3D")
+		row.prop(self, "palette_category_nodes", text="", icon="NODETREE")
 		
-		grid3 = layout.grid_flow(row_major=True, columns=3, even_columns=True, even_rows=False, align=False)
+		grid3 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
 		grid3.prop(self, "palette_file_location", text='')
 		grid3.prop(self, "palette_file_name", text='')
-		grid3.prop(self, "palette_category", text='')
+		
+		
+		
+		########## Driver Functions ##########
+		
+		layout.separator(factor = 2.0)
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Driver Functions", icon="DRIVER") # DRIVER DECORATE_DRIVER
+		titlegrid.prop(self, "drivers_category", text="", icon="VIEW3D")
 		
 		
 		
 		########## Vertex Location Keyframes ##########
 		
 		layout.separator(factor = 2.0)
-		layout.label(text="Vertex Location Keyframes", icon="DECORATE_KEYFRAME") # GROUP_VERTEX VERTEXSEL DECORATE_KEYFRAME KEYFRAME_HLT KEYFRAME
-		layout.prop(self, "keyframes_category", text='Sidebar Tab')
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Vertex Location Keyframes", icon="DECORATE_KEYFRAME") # GROUP_VERTEX VERTEXSEL DECORATE_KEYFRAME KEYFRAME_HLT KEYFRAME
+		titlegrid.prop(self, "keyframes_category", text="", icon="VIEW3D")
 
 
 
@@ -981,6 +1016,7 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 	bl_category = "Launch"
 	bl_order = 20
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category"
 	
 	def draw(self, context):
 		layout = self.layout
@@ -992,7 +1028,7 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 			row.prop(settings, "waveform_show", text="Audio Waveforms")
 			if settings.waveform_show:
 				audio_waveforms._draw_waveform_ui(layout, context)
-				
+		
 		row = layout.row()
 		row.prop(settings, "bpm_show", text="BPM Overlay")
 		if settings.bpm_show:
@@ -1009,9 +1045,11 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 
 classes = (
 	ProductionKitPreferences,
-	ProductionKitSettings,
-	VIEW3D_PT_timeline_overlays
+	ProductionKitSettings
 )
+
+# Registered from the tab category set in the extension preferences
+panels = [VIEW3D_PT_timeline_overlays]
 
 
 
@@ -1019,14 +1057,13 @@ def register():
 	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
-	
 	# Add extension settings reference
 	bpy.types.Scene.production_kit_settings = bpy.props.PointerProperty(type=ProductionKitSettings)
-	
+	# Register panel after the preferences above, which define its tab category
+	utility_panel.register_panels(panels)
 	
 	########## Audio Waveforms FFmpeg Check ##########
 	bpy.context.preferences.addons[__package__].preferences.check_ffmpeg_location()
-	
 	
 	########## Register Components ##########
 	audio_waveforms.register()
@@ -1055,16 +1092,20 @@ def unregister():
 	vertex_locations.unregister()
 	viewport_shading.unregister()
 	
-	
+	# Unregister panel
+	utility_panel.unregister_panels(panels)
 	# Remove extension settings reference
 	del bpy.types.Scene.production_kit_settings
-	
-	# Deregister classes
+	# Unregister classes
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
 
 
 if __package__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()
 	

@@ -1,6 +1,8 @@
 import bpy
 import os
 
+from . import utility_panel
+
 #prefs = bpy.context.preferences.addons[__package__].preferences
 #settings = bpy.context.scene.render_kit_settings
 
@@ -138,10 +140,9 @@ def load_palette_from_file(filepath):
 ###########################################################################
 # UI rendering class
 
-class PRODUCTIONKIT_PT_colorPalette(bpy.types.Panel):
+# Shared implementation, subclassed once per editor type below
+class ColorPalettePanel:
 	bl_label = "Color Palette"
-	bl_idname = "PRODUCTIONKIT_PT_colorPalette"
-	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_category = "Launch"
 	bl_order = 21
@@ -211,6 +212,16 @@ class PRODUCTIONKIT_PT_colorPalette(bpy.types.Panel):
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit palette panel")
 
+class PRODUCTIONKIT_PT_colorPalette(ColorPalettePanel, bpy.types.Panel):
+	bl_idname = "PRODUCTIONKIT_PT_colorPalette"
+	bl_space_type = "VIEW_3D"
+	category_preference = "palette_category"
+
+class PRODUCTIONKIT_PT_colorPaletteNode(ColorPalettePanel, bpy.types.Panel):
+	bl_idname = "PRODUCTIONKIT_PT_colorPaletteNode"
+	bl_space_type = "NODE_EDITOR"
+	category_preference = "palette_category_nodes"
+
 
 
 # ---------------------------------------------------------------------------
@@ -226,21 +237,36 @@ classes = [
 	EditPaletteOperator,
 	SavePaletteOperator,
 	LoadPaletteOperator,
+]
+
+panels = [
 	PRODUCTIONKIT_PT_colorPalette,
+	PRODUCTIONKIT_PT_colorPaletteNode,
 ]
 
 def register():
+	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
+	# Register panels
+	utility_panel.register_panels(panels)
+	# Add settings
 	bpy.types.Scene.palette_local = bpy.props.CollectionProperty(type=ColorPaletteProperty)
 
 
 def unregister():
+	# Remove settings
 	del bpy.types.Scene.palette_local
+	# Unregister panels
+	utility_panel.unregister_panels(panels)
+	# Unregister classes
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()
-	

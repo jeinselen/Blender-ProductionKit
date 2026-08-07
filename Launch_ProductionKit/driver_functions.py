@@ -5,6 +5,8 @@ from bpy_extras import anim_utils
 from colorsys import hsv_to_rgb
 from mathutils import noise
 
+from . import utility_panel
+
 ########## Easing Functions (adapted from the work of Robert Penner and https://easings.net/)
 
 # LINEAR
@@ -638,6 +640,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 	bl_category = 'Launch'
 	bl_order = 24
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "drivers_category"
 	
 	@classmethod
 	def poll(cls, context):
@@ -900,6 +903,8 @@ class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
 	bl_region_type = "UI"
 	bl_parent_id = "PRODUCTIONKIT_PT_driverFunctions"
 	bl_options = {'DEFAULT_CLOSED'}
+	# Subpanel of PRODUCTIONKIT_PT_driverFunctions, so it follows the same preference
+	category_preference = "drivers_category"
 	
 	@classmethod
 	def poll(cls, context):
@@ -951,27 +956,40 @@ def production_kit_driver_functions():
 def load_handler(dummy):
 	production_kit_driver_functions()
 
-classes = (
+classes = [
 	CopyDriverToClipboard,
-	WM_OT_find_replace_marker_expression,
+	WM_OT_find_replace_marker_expression
+]
+
+# Registered from the tab category set in the extension preferences, parent panel first
+panels = [
 	PRODUCTIONKIT_PT_driverFunctions,
-	PRODUCTIONKIT_PT_driverFunctions_find_replace)
+	PRODUCTIONKIT_PT_driverFunctions_find_replace,
+]
 
 def register():
+	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
+	# Register panels
+	utility_panel.register_panels(panels)
+	# Add drivers
 	production_kit_driver_functions()
-#	bpy.app.handlers.load_pre.append(load_handler)
 	bpy.app.handlers.load_post.append(load_handler)
 
 def unregister():
-	for cls in reversed(classes):
-		bpy.utils.unregister_class(cls)
-#	if load_handler in bpy.app.handlers.load_pre:
-#		bpy.app.handlers.load_pre.remove(load_handler)
+	# Remove drivers
 	if load_handler in bpy.app.handlers.load_post:
 		bpy.app.handlers.load_post.remove(load_handler)
+	# Unregister panels
+	utility_panel.unregister_panels(panels)
+	# Unregister classes
+	for cls in reversed(classes):
+		bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()
-	

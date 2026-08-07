@@ -1,5 +1,7 @@
 import bpy
 
+from . import utility_panel
+
 ###########################################################################
 # Update images
 
@@ -98,6 +100,7 @@ class PRODUCTIONKIT_PT_update_images_ui(bpy.types.Panel):
 	bl_category = "Node"
 	bl_order = 20
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "images_category"
 	
 	def draw(self, context):
 		prefs = context.preferences.addons[__package__].preferences
@@ -144,22 +147,34 @@ classes = [
 	Production_Kit_Update_Images,
 	Production_Kit_Switch_Extension_Inputs,
 	Production_Kit_Replace_Extensions,
-	PRODUCTIONKIT_PT_update_images_ui,
 ]
+
+panels = [PRODUCTIONKIT_PT_update_images_ui]
 
 
 def register():
+	# Register classes
 	for cls in classes:
 		bpy.utils.register_class(cls)
+	# Register panels
+	utility_panel.register_panels(panels)
+	# Add menu item
 	bpy.types.IMAGE_MT_image.append(production_kit_update_images_menu_item)
 
 
 def unregister():
+	# Remove menu item
 	bpy.types.IMAGE_MT_image.remove(production_kit_update_images_menu_item)
+	# Unregister panels
+	utility_panel.unregister_panels(panels)
+	# Unregister classes
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
+	try:
+		unregister()
+	except Exception:
+		pass
 	register()
-	

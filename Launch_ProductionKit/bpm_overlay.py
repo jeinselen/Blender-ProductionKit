@@ -3,6 +3,8 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 import math
 
+from . import utility_panel
+
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +179,9 @@ class BPM_PT_panel(bpy.types.Panel):
 	bl_space_type = "DOPESHEET_EDITOR"
 	bl_region_type = "UI"
 	bl_category = "Launch"
-	bl_order = 20
+	bl_order = 21
 	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_dopesheet"
 	
 	def draw_header(self, context):
 		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
@@ -192,29 +195,28 @@ class BPM_PT_panel(bpy.types.Panel):
 # Registration
 # ---------------------------------------------------------------------------
 
-_CLASSES = [
-	BPM_PT_panel,
-]
-
+# Registered from the tab category set in the extension preferences
+panels = [BPM_PT_panel]
 _draw_handle = None
 
+
 def register():
-	global _draw_handle
-	for cls in _CLASSES:
-		bpy.utils.register_class(cls)
+	utility_panel.register_panels(panels)
 	
+	global _draw_handle
 	_draw_handle = bpy.types.SpaceDopeSheetEditor.draw_handler_add(
 		draw_bpm_overlay, (), 'WINDOW', 'POST_PIXEL'
 	)
+
 
 def unregister():
 	global _draw_handle
 	if _draw_handle is not None:
 		bpy.types.SpaceDopeSheetEditor.draw_handler_remove(_draw_handle, 'WINDOW')
 		_draw_handle = None
-	
-	for cls in reversed(_CLASSES):
-		bpy.utils.unregister_class(cls)
+
+	utility_panel.unregister_panels(panels)
+
 
 if __name__ == "__main__":
 	try:
