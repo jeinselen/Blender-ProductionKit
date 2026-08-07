@@ -462,7 +462,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		titlegrid.prop(self, "enable_file_format")
 		titlegrid.prop(self, "enable_file_reload")
 		
-		grid = layout.grid_flow(row_major=True, columns=2, even_columns=False, even_rows=True, align=False)
+		grid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
 		if not self.enable_file_format:
 			grid.enabled = False
 		
