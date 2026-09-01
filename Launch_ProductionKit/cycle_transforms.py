@@ -42,7 +42,7 @@ class OBJECT_OT_cycle_transforms(bpy.types.Operator):
 		# Update the scene
 		context.view_layer.update()
 		
-		self.report({'INFO'}, f"Cycleed transforms for {len(selected_objects)} objects")
+		self.report({'INFO'}, f"Cycled transforms for {len(selected_objects)} objects")
 		return {'FINISHED'}
 
 ###########################################################################

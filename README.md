@@ -6,9 +6,13 @@
 
 - ### Audio Waveforms
 
-  - Renders audio clips from the Sequencer as waveforms in the general Timeline view
-
+  - Renders audio clips from the Sequencer as waveforms in the Dope Sheet and Timeline views (requires local [FFmpeg](https://ffmpeg.org/) installation feature is disabled if not set in the preferences)
+  
     ![Screenshot-AudioWaveforms](images/Screenshot-AudioWaveforms.png)
+  
+- ### BPM Overlay
+
+  - Draws beat and measure markers over the Dope Sheet and Timeline, with configurable BPM, time signature, colors, shapes, and offset (makes animating to music _much_ easier)
 
 - ### Color Palette
 
@@ -16,9 +20,14 @@
 
     ![Screenshot-ColorPalette](images/Screenshot-ColorPalette.png)
 
+- ### Cycle Transforms
+
+  - Adds a *Cycle Item Transforms* command to the Object > Transform menu that switches the location, rotation, and scale values for two or more selected objects
+
 - ### Driver Functions
 
   - Adds custom value drivers and a GUI for setting them up, including timeline values based on markers, random, wiggle, and curve-at-time functions
+  - Procedural easing with both in/out and inverted easing for a wide variety of applications (easing functions are adapted from the work of [Robert Penner](https://easings.net/))
 
     ![Screenshot-DriverFunctions4](images/Screenshot-DriverFunctions4.png)
 
@@ -27,6 +36,10 @@
   - Quick shortcuts for saving numbered project files in an archive location
 
     ![Screenshot-ProjectVersion](images/Screenshot-ProjectVersion.png)
+
+- ### Transfer to Scene
+
+  - Adds *Move to Scene*, *Copy to Scene*, and *Link to Scene* submenus to the Outliner context menu for moving, duplicating, or linking selected objects and collections between scenes
 
 - ### Update Images
 
@@ -65,10 +78,8 @@
 
 ## Installation via Download:
 
-- Download the .zip file for a specific kit
+- Download the extension .zip
 - Drag-and-drop the file into Blender
-
-
 
 These latter two methods will not connect to the centralised repository here on GitHub and updates will not be automatically available. If you don't need easy updates, don't want GitHub servers to be pinged when you start up Blender, or would just like to try some extensions without adding yet another repository to your Blender settings, this is the option for you.
 
