@@ -733,6 +733,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('MARKER-PREV', 'Marker Previous', 'Value of nearest marker before the current frame'),
 			('MARKER-NEXT', 'Marker Next', 'Value of nearest marker after the current frame'),
 			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
+			('MATCH', 'Marker Match', "Compares the item or its collection name against the nearest marker at or before the current frame"),
 			('RANDOM', 'Random', 'Value randomisation'),
 			('WIGGLE', 'Wiggle', 'Value noise pattern'),
 			],
@@ -790,7 +791,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	driver_curve_offset: bpy.props.StringProperty(
 		name="Offset",
-		default="frame - 10")
+		default="frame-10")
 	
 	
 	
@@ -875,6 +876,19 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Mix Value",
 		description='Mix value between start and end values',
 		default=0.5)
+	
+	
+	
+	# Marker Match
+	driver_match_mode: bpy.props.EnumProperty(
+		name='Match',
+		description='String to compare against the nearest marker at or before the current frame',
+		items=[
+			('item', 'Item', "Match the object's own name"),
+			('collection', 'Collection', "Match the item's primary parent collection"),
+			('collections', 'Collections', "Match any parent collection the item resides in"),
+			],
+		default='item')
 	
 	
 	

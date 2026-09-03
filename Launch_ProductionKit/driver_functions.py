@@ -512,6 +512,45 @@ def marker_range(start, end, clamp=False, a=0, b=1, ease_type='linear', directio
 
 
 
+#	markerMatch(required: self, optional: mode, no-match value, match value)
+#	markerMatch(self)                     -> 1.0 if the nearest marker matches the item name, else 0.0
+#	markerMatch(self, 'collection')       -> compare against the item's primary collection name instead
+#	markerMatch(self, 'collections')      -> match against ANY collection the item is directly linked to
+#	markerMatch(self, 'item', 2.0, 3.0)   -> 3.0 on match, 2.0 on no-match
+#	IMPORTANT: requires "Use Self" to be toggled on in the driver settings
+def marker_match(self, mode='item', a=0.0, b=1.0):
+	scene = bpy.context.scene
+	# self is the property owner; id_data resolves to the owning object (also covers bones)
+	obj = getattr(self, "id_data", None)
+	if obj is None:
+		obj = self
+	# Drivers evaluate against the depsgraph where users_collection is empty
+	# The original datablock is required to read collection membership (and the true name)
+	obj = getattr(obj, "original", None) or obj
+	if not hasattr(obj, "name"):
+		return a
+	# Find closest marker at or before current frame
+	active = None
+	frame = -100000
+	for marker in scene.timeline_markers:
+		if marker.frame <= scene.frame_current and marker.frame > frame:
+			frame = marker.frame
+			active = marker.name
+	if active is None:
+		return a
+	# Build the set of name(s) to compare against
+	mode = str(mode).lower()
+	if mode == 'collections':
+		names = {collection.name for collection in getattr(obj, "users_collection", ())}
+	elif mode == 'collection':
+		collections = getattr(obj, "users_collection", ())
+		names = {collections[0].name} if collections else set()
+	else:
+		names = {obj.name}
+	return b if active in names else a
+
+
+
 #	random(minimum, maximum, seed)
 #	markerRangeClamp(0.5, 1.5, 3575)
 def random(a, b, s=-1):
@@ -545,6 +584,67 @@ class CopyDriverToClipboard(bpy.types.Operator):
 	
 	def execute(self, context):
 		context.window_manager.clipboard = self.string
+		return {'FINISHED'}
+
+
+
+class PRODUCTIONKIT_OT_add_marker_match_driver(bpy.types.Operator):
+	"""Add a Marker Match driver to the property under the cursor, using the current Driver Functions settings, with Use Self enabled"""
+	bl_idname = "productionkit.add_marker_match_driver"
+	bl_label = "Add Marker Match Driver"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	# Optional explicit expression; when empty the expression is built from panel settings
+	expression: bpy.props.StringProperty(default="")
+
+	@classmethod
+	def poll(cls, context):
+		# Only valid over a property (right-click context menu on a driveable value)
+		return getattr(context, "property", None) is not None
+
+	@staticmethod
+	def build_expression(context):
+		settings = context.scene.production_kit_settings
+		mode = settings.driver_match_mode.lower()
+		a = settings.driver_value_a
+		b = settings.driver_value_b
+		if a != 0.0 or b != 1.0:
+			return f"markerMatch(self, '{mode}', {a}, {b})"
+		elif mode != 'item':
+			return f"markerMatch(self, '{mode}')"
+		return "markerMatch(self)"
+
+	def execute(self, context):
+		prop = getattr(context, "property", None)
+		if not prop:
+			self.report({'ERROR'}, "No property under the cursor - right-click a value to use this")
+			return {'CANCELLED'}
+		id_block, data_path, array_index = prop
+		if id_block is None:
+			self.report({'ERROR'}, "This property has no datablock that can hold a driver")
+			return {'CANCELLED'}
+
+		expression = self.expression or self.build_expression(context)
+
+		# Add the driver, retrying across all channels if the reported index is rejected
+		try:
+			try:
+				result = id_block.driver_add(data_path, array_index)
+			except (TypeError, RuntimeError):
+				result = id_block.driver_add(data_path)
+		except Exception as exc:
+			self.report({'ERROR'}, f"Could not add driver: {exc}")
+			return {'CANCELLED'}
+
+		fcurves = result if isinstance(result, list) else [result]
+		for fcurve in fcurves:
+			driver = fcurve.driver
+			driver.type = 'SCRIPTED'
+			driver.use_self = True
+			driver.expression = expression
+
+		id_block.update_tag()
+		self.report({'INFO'}, f"Added driver: {expression}")
 		return {'FINISHED'}
 
 
@@ -861,6 +961,36 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				else:
 					error = 'no scene markers'
 			
+			# Marker Match
+			elif settings.driver_select == 'MATCH':
+				if context.scene.timeline_markers:
+					row1 = col.row(align=True)
+					row1.prop(settings, 'driver_match_mode', expand=True)
+					col.separator()
+					
+					row2 = col.row(align=True)
+					row2.prop(settings, 'driver_value_a', text="False")
+					row2.prop(settings, 'driver_value_b', text="True")
+					col.separator()
+					
+					info = col.box().column(align=True)
+					info.label(text="Requires 'Use Self' enabled", icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
+					info.label(text="Right-click property field to 'Add Marker Match Driver'", icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
+					
+					# Generate shortest allowed version of the driver string
+					mode = settings.driver_match_mode.lower()
+					valueA = settings.driver_value_a
+					valueB = settings.driver_value_b
+					
+					if valueA != 0.0 or valueB != 1.0:
+						driver = f"markerMatch(self, '{mode}', {valueA}, {valueB})"
+					elif mode != 'item':
+						driver = f"markerMatch(self, '{mode}')"
+					else:
+						driver = "markerMatch(self)"
+				else:
+					error = 'no scene markers'
+			
 			# Random
 			elif settings.driver_select == 'RANDOM':
 				col.prop(settings, 'driver_random_min')
@@ -948,6 +1078,7 @@ def production_kit_driver_functions():
 	dns["markerRange"] = marker_range
 	dns["markerPrev"] = marker_prev
 	dns["markerNext"] = marker_next
+	dns["markerMatch"] = marker_match
 	dns["random"] = random
 	dns["wiggle"] = wiggle
 
@@ -956,8 +1087,16 @@ def production_kit_driver_functions():
 def load_handler(dummy):
 	production_kit_driver_functions()
 
+# Property right-click menu entry: one-click apply of a Marker Match driver
+def marker_match_context_menu(self, context):
+	if getattr(context, "property", None) is not None:
+		layout = self.layout
+		layout.separator()
+		layout.operator(PRODUCTIONKIT_OT_add_marker_match_driver.bl_idname, icon='DRIVER')
+
 classes = [
 	CopyDriverToClipboard,
+	PRODUCTIONKIT_OT_add_marker_match_driver,
 	WM_OT_find_replace_marker_expression
 ]
 
@@ -976,8 +1115,12 @@ def register():
 	# Add drivers
 	production_kit_driver_functions()
 	bpy.app.handlers.load_post.append(load_handler)
+	# Add the one-click driver entry to the property right-click menu
+	bpy.types.UI_MT_button_context_menu.append(marker_match_context_menu)
 
 def unregister():
+	# Remove the property right-click menu entry
+	bpy.types.UI_MT_button_context_menu.remove(marker_match_context_menu)
 	# Remove drivers
 	if load_handler in bpy.app.handlers.load_post:
 		bpy.app.handlers.load_post.remove(load_handler)
