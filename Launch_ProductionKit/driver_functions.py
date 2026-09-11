@@ -1,4 +1,5 @@
 import bpy
+import ast
 import math
 from bpy.app.handlers import persistent
 from bpy_extras import anim_utils
@@ -6,6 +7,43 @@ from colorsys import hsv_to_rgb
 from mathutils import noise
 
 from . import utility_panel
+
+########## Marker snapshot cache; the first driver of a frame builds the snapshot, every other driver reuses it until the frame changes again
+
+_marker_snapshot_cache = {}   # scene.as_pointer() -> (frame, snapshot)
+
+class _MarkerSnapshot:
+	__slots__ = ("markers", "active_frame", "active_name", "frame_by_name")
+	def __init__(self, scene):
+		frame_current = scene.frame_current
+		# Single RNA pass: capture (frame, name) pairs, the active marker, and a name -> frame lookup, all in one go
+		# Active marker = nearest at or before the current frame; ties resolve to the first in collection order (strict >), matching the original per-driver loop
+		# frame_by_name keeps the first occurrence of each name, matching the RNA collection's .get(name) / .find(name) (first match wins)
+		raw = []
+		self.active_frame = -100000
+		self.active_name = None
+		self.frame_by_name = {}
+		for m in scene.timeline_markers:
+			f = m.frame
+			n = m.name
+			raw.append((f, n))
+			if f <= frame_current and f > self.active_frame:
+				self.active_frame = f
+				self.active_name = n
+			if n not in self.frame_by_name:
+				self.frame_by_name[n] = f
+		# Sorted by frame for the prev/next/range/match scans (lets them break early)
+		self.markers = sorted(raw, key=lambda fm: fm[0])
+		
+def _marker_snapshot(scene):
+	key = scene.as_pointer()
+	frame = scene.frame_current
+	entry = _marker_snapshot_cache.get(key)
+	if entry is not None and entry[0] == frame:
+		return entry[1]
+	snapshot = _MarkerSnapshot(scene)
+	_marker_snapshot_cache[key] = (frame, snapshot)
+	return snapshot
 
 ########## Easing Functions (adapted from the work of Robert Penner and https://easings.net/)
 
@@ -74,13 +112,13 @@ def ease_out_circ(t): return math.sqrt(1 - pow(t - 1, 2))
 def ease_in_out_circ(t):
 	return (1 - math.sqrt(1 - (2 * t) ** 2)) / 2 if t < 0.5 else (math.sqrt(1 - pow(-2 * t + 2, 2)) + 1) / 2
 
-# BACK
+# OVER
 c1 = 1.70158
 c2 = c1 * 1.525
 c3 = c1 + 1
-def ease_in_back(t): return c3 * t * t * t - c1 * t * t
-def ease_out_back(t): return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
-def ease_in_out_back(t):
+def ease_in_over(t): return c3 * t * t * t - c1 * t * t
+def ease_out_over(t): return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2)
+def ease_in_out_over(t):
 	if t < 0.5:
 		return (pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
 	else:
@@ -234,10 +272,10 @@ easing_functions = {
 		"out": ease_out_circ,
 		"inout": ease_in_out_circ
 	},
-	"back": {
-		"in": ease_in_back,
-		"out": ease_out_back,
-		"inout": ease_in_out_back
+	"over": {
+		"in": ease_in_over,
+		"out": ease_out_over,
+		"inout": ease_in_out_over
 	},
 	"elastic": {
 		"in": ease_in_elastic,
@@ -399,7 +437,7 @@ def lerp(a, b, c):
 
 
 
-#	markerValue(required: marker name, optional: static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerValue(required: marker name, optional: static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
 #	markerValue('marker_1')
 #	markerValue('marker_1', False, True)
 #	markerValue('marker_1', True, True, True, 1.0)
@@ -407,8 +445,9 @@ def lerp(a, b, c):
 def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = 0
-	if scene.timeline_markers.find(name) > -1:
-		frame = scene.timeline_markers.get(name).frame
+	frame_by_name = _marker_snapshot(scene).frame_by_name
+	if name in frame_by_name:
+		frame = frame_by_name[name]
 		if relative:
 			frame = scene.frame_current - frame
 		if seconds:
@@ -421,7 +460,7 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a
 				frame = (a * (1 - frame)) + (b * frame)
 	return frame
 
-#	markerPrev(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerPrev(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
 #	markerPrev('')
 #	markerPrev('marker_')
 #	markerPrev('marker_', False, True)
@@ -430,15 +469,16 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a
 def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_start
+	markers = _marker_snapshot(scene).markers
 	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
+	if markers:
 		frame = -100000
 		marker_found = False
-		for marker in scene.timeline_markers:
-			if (name and name in marker.name) or not name:
+		for marker_frame, marker_name in markers:
+			if (name and name in marker_name) or not name:
 				marker_found = True
-				if marker.frame <= scene.frame_current and marker.frame > frame:
-					frame = marker.frame
+				if marker_frame <= scene.frame_current and marker_frame > frame:
+					frame = marker_frame
 		if not marker_found:
 			frame = scene.frame_start
 		if relative:
@@ -453,7 +493,7 @@ def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration
 				frame = (a * (1 - frame)) + (b * frame)
 	return frame
 
-#	markerNext(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, ease type, ease directions)
+#	markerNext(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
 #	markerNext()
 #	markerNext('marker_')
 #	markerNext('marker_', False, True)
@@ -462,15 +502,16 @@ def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration
 def marker_next(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_end
-	# Find closest marker frame at or before current frame
-	if len(scene.timeline_markers) > 0:
+	markers = _marker_snapshot(scene).markers
+	# Find closest marker frame at or after current frame
+	if markers:
 		frame = 100000
 		marker_found = False
-		for marker in scene.timeline_markers:
-			if (name and name in marker.name) or not name:
+		for marker_frame, marker_name in markers:
+			if (name and name in marker_name) or not name:
 				marker_found = True
-				if marker.frame >= scene.frame_current and marker.frame < frame:
-					frame = scene.frame_current - marker.frame if relative else marker.frame
+				if marker_frame >= scene.frame_current and marker_frame < frame:
+					frame = marker_frame
 		if not marker_found:
 			frame = scene.frame_end
 		if relative:
@@ -485,40 +526,46 @@ def marker_next(name=False, relative=False, seconds=False, clamp=False, duration
 				frame = (a * (1 - frame)) + (b * frame)
 	return frame
 
-#	markerRange(required: marker start, marker end, optional: clamp, start value, end value, ease type, ease directions)
+#	markerRange(required: marker start, marker end, optional: mode, start value, end value, easing type, easing direction)
 #	markerRange('marker_1', 'marker_2')
-#	markerRange('marker_1', 'marker_2', False, -0.5, 0.5)
-#	markerRange('marker_1', 'marker_2', True, -0.5, 0.5, 'smooth', 'inout')
-def marker_range(start, end, clamp=False, a=0, b=1, ease_type='linear', direction='inout'):
+#	markerRange('marker_1', 'marker_2', 'extend', -0.5, 0.5)
+#	markerRange('marker_1', 'marker_2', 'clamp', -0.5, 0.5, 'smooth', 'inout')
+#	markerRange('marker_1', 'marker_2', 'switch', -0.5, 0.5)
+#	Modes: 'extend' (default), 'clamp', 'switch'
+def marker_range(start, end, mode='extend', a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
-	if scene.timeline_markers.find(start) > -1 and scene.timeline_markers.find(end) > -1:
-		start = scene.timeline_markers.get(start).frame
-		end = scene.timeline_markers.get(end).frame
-		if clamp and scene.frame_current <= start:
-			return a
-		elif clamp and scene.frame_current >= end:
-			return b
-		else:
-			c = (scene.frame_current - start) / (end - start)
-			if clamp:
-				c = min(max(c, 0), 1)
-				if ease_type != 'linear':
-					c = get_ease(c, ease_type, direction)
-			if a != 0 or b != 1:
-				c = (a * (1.0 - c)) + (b * c)
-			return c
+	frame_by_name = _marker_snapshot(scene).frame_by_name
+	if start in frame_by_name and end in frame_by_name:
+		start = frame_by_name[start]
+		end = frame_by_name[end]
+		# Switch: value B while inside the range, value A outside of it
+		if mode == 'switch':
+			return b if start <= scene.frame_current < end else a
+		# Zero-width range (two differently named markers on the same frame): avoid divide-by-zero
+		if end == start:
+			return b if scene.frame_current >= start else a
+		c = (scene.frame_current - start) / (end - start)
+		if mode == 'clamp':
+			c = min(max(c, 0), 1)
+			if ease_type != 'linear':
+				c = get_ease(c, ease_type, direction)
+		if a != 0 or b != 1:
+			c = (a * (1.0 - c)) + (b * c)
+		return c
 	else:
 		return 0.0
 
-
-
-#	markerMatch(required: self, optional: mode, no-match value, match value)
-#	markerMatch(self)                     -> 1.0 if the nearest marker matches the item name, else 0.0
-#	markerMatch(self, 'collection')       -> compare against the item's primary collection name instead
-#	markerMatch(self, 'collections')      -> match against ANY collection the item is directly linked to
-#	markerMatch(self, 'item', 2.0, 3.0)   -> 3.0 on match, 2.0 on no-match
+#	markerMatch(required: self, optional: source, mode, value A, value B, easing type, easing direction)
+#	markerMatch(self)
+#	markerMatch(self, 'collection')
+#	markerMatch(self, 'collections')
+#	markerMatch(self, 'item', 'switch', 2.0, 3.0)
+#	markerMatch(self, 'item', 'frame')
+#	markerMatch(self, 'item', 'clamp', 0.0, 1.0, 'smooth', 'inout')
+#	Sources: 'item' (default), 'collection', 'collections'
+#	Modes: 'frame' (default), 'extend', 'clamp', 'switch'
 #	IMPORTANT: requires "Use Self" to be toggled on in the driver settings
-def marker_match(self, mode='item', a=0.0, b=1.0):
+def marker_match(self, source='item', mode='frame', a=0.0, b=1.0, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	# self is the property owner; id_data resolves to the owning object (also covers bones)
 	obj = getattr(self, "id_data", None)
@@ -529,25 +576,64 @@ def marker_match(self, mode='item', a=0.0, b=1.0):
 	obj = getattr(obj, "original", None) or obj
 	if not hasattr(obj, "name"):
 		return a
-	# Find closest marker at or before current frame
-	active = None
-	frame = -100000
-	for marker in scene.timeline_markers:
-		if marker.frame <= scene.frame_current and marker.frame > frame:
-			frame = marker.frame
-			active = marker.name
-	if active is None:
-		return a
+	# Per-frame snapshot shared by every marker driver (see _MarkerSnapshot)
+	snapshot = _marker_snapshot(scene)
+	markers = snapshot.markers
+	# Closest marker at or before current frame (precomputed once for the whole frame)
+	active = snapshot.active_name
+	active_frame = snapshot.active_frame
 	# Build the set of name(s) to compare against
-	mode = str(mode).lower()
-	if mode == 'collections':
+	source = str(source).lower()
+	if source == 'collections':
 		names = {collection.name for collection in getattr(obj, "users_collection", ())}
-	elif mode == 'collection':
+	elif source == 'collection':
 		collections = getattr(obj, "users_collection", ())
 		names = {collections[0].name} if collections else set()
 	else:
 		names = {obj.name}
-	return b if active in names else a
+	matched = active in names
+	mode = str(mode).lower()
+	# Frame mode (default): the frame of the matched marker (0.0 when there is no match)
+	if mode == 'frame':
+		return float(active_frame) if matched else 0.0
+	# Switch mode: value B on match, value A otherwise
+	if mode == 'switch':
+		return b if matched else a
+	# Extend / Clamp: map [0,1] from the matched marker to the next marker in the timeline
+	# Start of the range: nearest matching marker at or before the current frame, falling
+	# back to the earliest matching marker so the ramp extrapolates negatively before it.
+	# markers is sorted by frame, so the first match is the earliest and the last
+	# match at or before the current frame is the range start.
+	start_frame = None
+	first_match = None
+	frame_current = scene.frame_current
+	for marker_frame, marker_name in markers:
+		if marker_name in names:
+			if first_match is None:
+				first_match = marker_frame
+			if marker_frame <= frame_current:
+				start_frame = marker_frame
+	if start_frame is None:
+		start_frame = first_match
+	if start_frame is None:
+		return a
+	# End of the range: nearest marker (of any name) strictly after the start marker.
+	# The list is sorted, so the first one past start_frame is the nearest.
+	end_frame = None
+	for marker_frame, marker_name in markers:
+		if marker_frame > start_frame:
+			end_frame = marker_frame
+			break
+	if end_frame is None or end_frame == start_frame:
+		return b
+	c = (scene.frame_current - start_frame) / (end_frame - start_frame)
+	if mode == 'clamp':
+		c = min(max(c, 0), 1)
+		if ease_type != 'linear':
+			c = get_ease(c, ease_type, direction)
+	if a != 0 or b != 1:
+		c = (a * (1.0 - c)) + (b * c)
+	return c
 
 
 
@@ -573,6 +659,118 @@ def wiggle(freq, amp, oct, seed):
 
 
 ###########################################################################
+# Expression builders (shared between the panel and the right-click operator)
+
+#	Build the shortest valid markerRange() expression from the panel settings
+#	(the runtime mode keyword is just the lowercase enum identifier)
+def build_marker_range_expression(settings):
+	start = settings.driver_marker_name
+	end = settings.driver_marker_end
+	mode = settings.driver_range_mode.lower()
+	a = settings.driver_value_a
+	b = settings.driver_value_b
+	ease_type = settings.driver_ease_type
+	# Extend with the default 0-1 range: shortest form (mode defaults to 'extend')
+	if mode == 'extend' and a == 0 and b == 1:
+		return f"markerRange('{start}', '{end}')"
+	expression = f"markerRange('{start}', '{end}', '{mode}'"
+	# Include the value range when custom, or when clamp easing needs it to reach the ease arguments
+	if a != 0 or b != 1 or (mode == 'clamp' and ease_type != 'linear'):
+		expression += f", {a}, {b}"
+		if mode == 'clamp' and ease_type != 'linear':
+			expression += f", '{ease_type}', '{settings.driver_ease_direction}'"
+	return expression + ")"
+
+#	Build the shortest valid markerMatch() expression from the panel settings
+def build_marker_match_expression(settings):
+	source = settings.driver_match_source.lower()
+	mode = settings.driver_match_mode
+	a = settings.driver_value_a
+	b = settings.driver_value_b
+	# Frame mode is the runtime default, so it takes the compact forms and ignores the value range
+	if mode == 'FRAME':
+		if source != 'item':
+			return f"markerMatch(self, '{source}')"
+		return "markerMatch(self)"
+	# Switch mode must state 'switch' explicitly (omitting the mode would fall back to 'frame')
+	if mode == 'SWITCH':
+		if a != 0.0 or b != 1.0:
+			return f"markerMatch(self, '{source}', 'switch', {a}, {b})"
+		return f"markerMatch(self, '{source}', 'switch')"
+	# Extend / Clamp ramp between the matched marker and the next one
+	# (the runtime mode keyword is just the lowercase enum identifier)
+	expression = f"markerMatch(self, '{source}', '{mode.lower()}', {a}, {b}"
+	if mode == 'CLAMP' and settings.driver_ease_type != 'linear':
+		expression += f", ease_type='{settings.driver_ease_type}', direction='{settings.driver_ease_direction}'"
+	return expression + ")"
+
+
+
+###########################################################################
+# Legacy driver migration (older marker driver argument formats -> current format)
+
+#	Rewrite legacy markerRange() and markerMatch() calls to the	current argument order
+#	`markerRange` 3rd positional arg: legacy bool clamp -> 'extend' / 'clamp' mode string
+#	`markerMatch` legacy value form markerMatch(self, 'src', a[, b]) with a numeric third argument -> markerMatch(self, 'src', 'switch', a[, b]), preserving the old 0/1 style
+#	The ambiguous bare markerMatch(self) and source-only markerMatch(self, 'src') forms are NOT touched: they are valid (frame-mode) new syntax, so rewriting them could break a current file. Adjust those by hand if upgrading from a build where they meant 'switch'.
+
+def _migrate_marker_expression(expr):
+	try:
+		tree = ast.parse(expr, mode='eval')
+	except SyntaxError:
+		return expr, False
+	changed = False
+	for node in ast.walk(tree):
+		if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+			continue
+		if node.func.id == 'markerRange' and len(node.args) >= 3:
+			a3 = node.args[2]
+			if isinstance(a3, ast.Constant) and isinstance(a3.value, bool):
+				node.args[2] = ast.Constant('clamp' if a3.value else 'extend')
+				changed = True
+		elif node.func.id == 'markerMatch' and len(node.args) >= 3:
+			a3 = node.args[2]
+			# A numeric third argument is the legacy value slot; a string there is already a mode
+			if isinstance(a3, ast.Constant) and isinstance(a3.value, (int, float)) and not isinstance(a3.value, bool):
+				node.args.insert(2, ast.Constant('switch'))
+				changed = True
+	if not changed:
+		return expr, False
+	ast.fix_missing_locations(tree)
+	return ast.unparse(tree.body), True
+
+#	Return every driver in the file and de-duplicated
+def _iter_drivers():
+	seen = set()
+	sources = [
+		bpy.data.objects,
+		bpy.data.materials,
+		bpy.data.node_groups,
+		bpy.data.scenes,
+		bpy.data.worlds,
+		bpy.data.lights,
+		bpy.data.cameras,
+		bpy.data.meshes,
+		bpy.data.curves,
+		bpy.data.metaballs,
+		bpy.data.lattices,
+		bpy.data.armatures,
+		bpy.data.speakers,
+		bpy.data.textures,
+	]
+	for collection in sources:
+		for data_item in collection:
+			ad = getattr(data_item, "animation_data", None)
+			if ad and ad.drivers:
+				for fcurve in ad.drivers:
+					driver = fcurve.driver
+					if driver and driver.as_pointer() not in seen:
+						seen.add(driver.as_pointer())
+						yield data_item, fcurve, driver
+
+
+
+###########################################################################
 # Action classes
 
 class CopyDriverToClipboard(bpy.types.Operator):
@@ -593,27 +791,19 @@ class PRODUCTIONKIT_OT_add_marker_match_driver(bpy.types.Operator):
 	bl_idname = "productionkit.add_marker_match_driver"
 	bl_label = "Add Marker Match Driver"
 	bl_options = {'REGISTER', 'UNDO'}
-
+	
 	# Optional explicit expression; when empty the expression is built from panel settings
 	expression: bpy.props.StringProperty(default="")
-
+	
 	@classmethod
 	def poll(cls, context):
 		# Only valid over a property (right-click context menu on a driveable value)
 		return getattr(context, "property", None) is not None
-
+	
 	@staticmethod
 	def build_expression(context):
-		settings = context.scene.production_kit_settings
-		mode = settings.driver_match_mode.lower()
-		a = settings.driver_value_a
-		b = settings.driver_value_b
-		if a != 0.0 or b != 1.0:
-			return f"markerMatch(self, '{mode}', {a}, {b})"
-		elif mode != 'item':
-			return f"markerMatch(self, '{mode}')"
-		return "markerMatch(self)"
-
+		return build_marker_match_expression(context.scene.production_kit_settings)
+	
 	def execute(self, context):
 		prop = getattr(context, "property", None)
 		if not prop:
@@ -623,9 +813,9 @@ class PRODUCTIONKIT_OT_add_marker_match_driver(bpy.types.Operator):
 		if id_block is None:
 			self.report({'ERROR'}, "This property has no datablock that can hold a driver")
 			return {'CANCELLED'}
-
+		
 		expression = self.expression or self.build_expression(context)
-
+		
 		# Add the driver, retrying across all channels if the reported index is rejected
 		try:
 			try:
@@ -635,14 +825,14 @@ class PRODUCTIONKIT_OT_add_marker_match_driver(bpy.types.Operator):
 		except Exception as exc:
 			self.report({'ERROR'}, f"Could not add driver: {exc}")
 			return {'CANCELLED'}
-
+		
 		fcurves = result if isinstance(result, list) else [result]
 		for fcurve in fcurves:
 			driver = fcurve.driver
 			driver.type = 'SCRIPTED'
 			driver.use_self = True
 			driver.expression = expression
-
+		
 		id_block.update_tag()
 		self.report({'INFO'}, f"Added driver: {expression}")
 		return {'FINISHED'}
@@ -723,6 +913,40 @@ class WM_OT_find_replace_marker_expression(bpy.types.Operator):
 		print(f"Drivers modified: {drivers_modified}")
 		print(  f"-------------------------------\n")
 		
+		return {'FINISHED'}
+
+
+
+class WM_OT_migrate_marker_drivers(bpy.types.Operator):
+	"""Update legacy Marker Range and Marker Match driver expressions in this file to the current argument format.\nSafe to run more than once; only outdated expressions are changed"""
+	bl_idname = "wm.migrate_marker_drivers"
+	bl_label = "Update Legacy Marker Drivers"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	def invoke(self, context, event):
+		# Rewrites expressions across the whole file, so confirm before running
+		return context.window_manager.invoke_confirm(self, event)
+	
+	def execute(self, context):
+		scanned = 0
+		updated = 0
+		for data_item, fcurve, driver in _iter_drivers():
+			expression = driver.expression
+			if not expression or ('markerRange' not in expression and 'markerMatch' not in expression):
+				continue
+			scanned += 1
+			new_expression, changed = _migrate_marker_expression(expression)
+			if changed:
+				driver.expression = new_expression
+				updated += 1
+				print(f"Updated driver on {data_item.name}: {fcurve.data_path} -> {new_expression}")
+		
+		print(f"\n--- Marker Driver Migration Complete ---")
+		print(f"Marker drivers scanned: {scanned}")
+		print(f"Drivers updated: {updated}")
+		print(  f"----------------------------------------\n")
+		
+		self.report({'INFO'}, f"Updated {updated} of {scanned} marker driver(s)")
 		return {'FINISHED'}
 
 
@@ -818,7 +1042,82 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				
 				driver = f"lerp({settings.driver_value_a}, {settings.driver_value_b}, {settings.driver_value_c})"
 			
-			# Marker
+			# Marker Range
+			elif settings.driver_select == 'MARKER-RANGE':
+				if context.scene.timeline_markers:
+					mode = settings.driver_range_mode
+
+					# Marker selection
+					col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
+					col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
+					col.separator()
+
+					# Mode (Extend / Clamp / Switch)
+					row = col.row(align=True)
+					row.prop(settings, 'driver_range_mode', expand=True)
+
+					# Value range UI
+					rowA = col.row(align=True)
+					rowA.prop(settings, 'driver_value_a', text="")
+					rowA.prop(settings, 'driver_value_b', text="")
+
+					# Interpolation UI (only meaningful when clamped)
+					rowB = col.row(align=True)
+					if mode != 'CLAMP':
+						rowB.active = False
+						rowB.enabled = False
+					rowB.prop(settings, 'driver_ease_type', text="")
+					rowB.prop(settings, 'driver_ease_direction', text="")
+
+					if settings.driver_marker_name == '' or settings.driver_marker_end == '':
+						error = 'missing marker name'
+					elif settings.driver_marker_name == settings.driver_marker_end:
+						error = 'duplicate marker name'
+					else:
+						driver = build_marker_range_expression(settings)
+				else:
+					error = 'no scene markers'
+			
+			# Marker Match
+			elif settings.driver_select == 'MARKER-MATCH':
+				if context.scene.timeline_markers:
+					# Match source (Item / Collection / Collections)
+					row1 = col.row(align=True)
+					row1.prop(settings, 'driver_match_source', expand=True)
+					# Value mode (Frame / Extend / Clamp / Switch)
+					row2 = col.row(align=True)
+					row2.prop(settings, 'driver_match_mode', expand=True)
+					col.separator()
+
+					mode = settings.driver_match_mode
+
+					# Value range UI (unused for Frame mode)
+					rowA = col.row(align=True)
+					if mode == 'FRAME':
+						rowA.active = False
+						rowA.enabled = False
+					rowA.prop(settings, 'driver_value_a', text="")
+					rowA.prop(settings, 'driver_value_b', text="")
+
+					# Interpolation UI (only meaningful when clamped)
+					rowB = col.row(align=True)
+					if mode != 'CLAMP':
+						rowB.active = False
+						rowB.enabled = False
+					rowB.prop(settings, 'driver_ease_type', text="")
+					rowB.prop(settings, 'driver_ease_direction', text="")
+					col.separator()
+					
+					info = col.box().column(align=True)
+					info.label(text="Requires 'Use Self' enabled", icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
+					info.label(text="Right-click property field to 'Add Marker Match Driver'", icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
+					
+					# Generate shortest allowed version of the driver string
+					driver = build_marker_match_expression(settings)
+				else:
+					error = 'no scene markers'
+			
+			# All other marker-based drivers
 			elif 'MARKER-' in settings.driver_select:
 				if context.scene.timeline_markers:
 					# Settings
@@ -828,7 +1127,6 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					duration = settings.driver_marker_duration
 					valueA = settings.driver_value_a
 					valueB = settings.driver_value_b
-					range = False
 					
 					# Marker Value
 					if settings.driver_select == 'MARKER-VALUE':
@@ -887,59 +1185,36 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							# Short version for basic usage (interpolation added below)
 							driver = f"{direction}('{string}'"
 					
-					# Marker Range
-					elif settings.driver_select == 'MARKER-RANGE':
-						range = True
-						# Marker selection
-						col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
-						col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
-						col.separator()
-						
-						# Time settings
-						row1 = col.row()
-						row1.prop(settings, 'driver_marker_clamp', expand=True)
-						
-						if settings.driver_marker_name == '' or settings.driver_marker_end == '':
-							error = 'missing marker name'
-						elif settings.driver_marker_name == settings.driver_marker_end:
-							error = 'duplicate marker name'
-						else:
-							# Short version for basic usage (interpolation added below)
-							driver = f"markerRange('{settings.driver_marker_name}', '{settings.driver_marker_end}'"
-					
 					# Menu Error
 					else:
 						error = 'invalid menu selection'
 					
 					# Value range UI
 					rowA = col.row(align=True)
-					if not range and not (relative and seconds and clamp):
+					if not (relative and seconds and clamp):
 						rowA.active = False
 						rowA.enabled = False
-					if not range:
-						rowA.prop(settings, 'driver_marker_duration', text='')
+					rowA.prop(settings, 'driver_marker_duration', text='')
 					rowA.prop(settings, 'driver_value_a', text="")
 					rowA.prop(settings, 'driver_value_b', text="")
 					
 					# Interpolation UI
 					rowB = col.row(align=True)
-					if not (((relative and seconds) or range) and clamp):
+					if not (relative and seconds and clamp):
 						rowB.active = False
 						rowB.enabled = False
 					rowB.prop(settings, 'driver_ease_type', text="")
 					rowB.prop(settings, 'driver_ease_direction', text="")
 					
 					# Relative and seconds
-					if (relative or seconds) and not range:
+					if relative or seconds:
 						driver += f", {relative}"
 						if seconds:
 							driver += f", {seconds}"
 					
-					# Clamp, range, and interpolation
-					if ((relative and seconds) or range) and clamp:
-						driver += f", {clamp}"
-						if not range:
-							driver += f", {duration}"
+					# Clamp, duration, and interpolation
+					if relative and seconds and clamp:
+						driver += f", {clamp}, {duration}"
 						
 						# Get interpolation type
 						easeType = settings.driver_ease_type
@@ -951,43 +1226,10 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 							driver += f", {valueA}, {valueB}"
 							if not linear:
 								driver += f", '{easeType}', '{settings.driver_ease_direction}'"
-					# Support marker range remapping of start/end values when unclamped
-					elif range and (valueA != 0 or valueB != 1):
-						driver += f", {clamp}, {valueA}, {valueB}"
 					
 					# Complete driver with parenthetical closing
 					driver += ")"
-					
-				else:
-					error = 'no scene markers'
-			
-			# Marker Match
-			elif settings.driver_select == 'MATCH':
-				if context.scene.timeline_markers:
-					row1 = col.row(align=True)
-					row1.prop(settings, 'driver_match_mode', expand=True)
-					col.separator()
-					
-					row2 = col.row(align=True)
-					row2.prop(settings, 'driver_value_a', text="False")
-					row2.prop(settings, 'driver_value_b', text="True")
-					col.separator()
-					
-					info = col.box().column(align=True)
-					info.label(text="Requires 'Use Self' enabled", icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
-					info.label(text="Right-click property field to 'Add Marker Match Driver'", icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
-					
-					# Generate shortest allowed version of the driver string
-					mode = settings.driver_match_mode.lower()
-					valueA = settings.driver_value_a
-					valueB = settings.driver_value_b
-					
-					if valueA != 0.0 or valueB != 1.0:
-						driver = f"markerMatch(self, '{mode}', {valueA}, {valueB})"
-					elif mode != 'item':
-						driver = f"markerMatch(self, '{mode}')"
-					else:
-						driver = "markerMatch(self)"
+				
 				else:
 					error = 'no scene markers'
 			
@@ -1055,6 +1297,10 @@ class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
 			row.prop(settings, 'driver_marker_replace', text='')
 			row = col.row(align=True)
 			row.operator(WM_OT_find_replace_marker_expression.bl_idname, icon='ZOOM_ALL') # ZOOM_ALL VIEWZOOM SORTBYEXT
+			col.separator()
+			# Upgrade older Marker Range / Marker Match driver expressions to the current format
+			row = col.row(align=True)
+			row.operator(WM_OT_migrate_marker_drivers.bl_idname, icon='FILE_REFRESH')
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit Driver Functions Find & Replace subpanel")
 
@@ -1085,6 +1331,8 @@ def production_kit_driver_functions():
 # Persistent handler to register custom functions after file load
 @persistent
 def load_handler(dummy):
+	# A new file has different scenes and markers; drop any stale snapshots
+	_marker_snapshot_cache.clear()
 	production_kit_driver_functions()
 
 # Property right-click menu entry: one-click apply of a Marker Match driver
@@ -1097,7 +1345,8 @@ def marker_match_context_menu(self, context):
 classes = [
 	CopyDriverToClipboard,
 	PRODUCTIONKIT_OT_add_marker_match_driver,
-	WM_OT_find_replace_marker_expression
+	WM_OT_find_replace_marker_expression,
+	WM_OT_migrate_marker_drivers
 ]
 
 # Registered from the tab category set in the extension preferences, parent panel first
@@ -1124,6 +1373,7 @@ def unregister():
 	# Remove drivers
 	if load_handler in bpy.app.handlers.load_post:
 		bpy.app.handlers.load_post.remove(load_handler)
+	_marker_snapshot_cache.clear()
 	# Unregister panels
 	utility_panel.unregister_panels(panels)
 	# Unregister classes

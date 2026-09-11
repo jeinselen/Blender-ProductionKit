@@ -733,18 +733,16 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('MARKER-PREV', 'Marker Previous', 'Value of nearest marker before the current frame'),
 			('MARKER-NEXT', 'Marker Next', 'Value of nearest marker after the current frame'),
 			('MARKER-RANGE', 'Marker Range', '0-1 value range between two named markers'),
-			('MATCH', 'Marker Match', "Compares the item or its collection name against the nearest marker at or before the current frame"),
+			('MARKER-MATCH', 'Marker Match', "Compares the item or its collection name against the nearest marker at or before the current frame"),
 			('RANDOM', 'Random', 'Value randomisation'),
 			('WIGGLE', 'Wiggle', 'Value noise pattern'),
 			],
 		default='CURVE'
 	)
 	
-	# Curve at Time (object name will be taken from whatever object is currently active)
-#	driver_curve_channel: bpy.props.IntProperty(
-#		name="Property",
-#		default=0)
 	
+	
+	# Curve at Time (object name will be taken from whatever object is currently active)
 	driver_curve_channel: bpy.props.EnumProperty(
 		name="Property",
 		items=lambda self, context: self.get_fcurve_items(context)
@@ -757,36 +755,36 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			# Blender 5.0 removed Action.fcurves; use the slot-aware channelbag helper
 			fcurves = driver_functions._action_fcurves(obj)
 			if fcurves:
-					for index, fcurve in enumerate(fcurves):
-						# Get base property name and index
-						data_path = fcurve.data_path
-						array_index = fcurve.array_index
-						
-						# Default label
-						label = data_path
-						
-						# Try to improve naming for common array-type properties
-						axis_labels = {
-							"location": ["X", "Y", "Z"],
-							"scale": ["X", "Y", "Z"],
-							"rotation_euler": ["X", "Y", "Z"],
-							"rotation_quaternion": ["W", "X", "Y", "Z"],
-							"delta_location": ["X", "Y", "Z"],
-							"delta_rotation_euler": ["X", "Y", "Z"],
-							"delta_scale": ["X", "Y", "Z"]
-						}
-						
-						short_path = data_path.split('.')[-1]
-						
-						if short_path in axis_labels:
-							axis = axis_labels[short_path][array_index]
-							label = f"{short_path.replace('_', ' ').title()} {axis}"
-						else:
-							# Fallback: include array index if applicable
-							if fcurve.array_index != -1:
-								label = f"{data_path}[{array_index}]"
-						
-						items.append((str(index), label, ""))
+				for index, fcurve in enumerate(fcurves):
+					# Get base property name and index
+					data_path = fcurve.data_path
+					array_index = fcurve.array_index
+					
+					# Default label
+					label = data_path
+					
+					# Try to improve naming for common array-type properties
+					axis_labels = {
+						"location": ["X", "Y", "Z"],
+						"scale": ["X", "Y", "Z"],
+						"rotation_euler": ["X", "Y", "Z"],
+						"rotation_quaternion": ["W", "X", "Y", "Z"],
+						"delta_location": ["X", "Y", "Z"],
+						"delta_rotation_euler": ["X", "Y", "Z"],
+						"delta_scale": ["X", "Y", "Z"]
+					}
+					
+					short_path = data_path.split('.')[-1]
+					
+					if short_path in axis_labels:
+						axis = axis_labels[short_path][array_index]
+						label = f"{short_path.replace('_', ' ').title()} {axis}"
+					else:
+						# Fallback: include array index if applicable
+						if fcurve.array_index != -1:
+							label = f"{data_path}[{array_index}]"
+					
+					items.append((str(index), label, ""))
 		return items
 	
 	driver_curve_offset: bpy.props.StringProperty(
@@ -818,7 +816,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('circ', 'Circular', 'Circular curvature'),
 			('', '', ''),
 			# Non-monotonic formulas (forward/backward movement)
-			('back', 'Back (anticipation/rebound)', 'Overshoots the source and/or target values'),
+			('over', 'Overshoot (anticipate/rebound)', 'Overshoots the source and target values'),
 			('elastic', 'Elastic', 'Springy oscillation from or to source and target values'),
 			('bounce', 'Bounce', 'Gravitational bounce from or to source and target values'),
 			('', '', ''),
@@ -879,19 +877,6 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	
 	
-	# Marker Match
-	driver_match_mode: bpy.props.EnumProperty(
-		name='Match',
-		description='String to compare against the nearest marker at or before the current frame',
-		items=[
-			('item', 'Item', "Match the object's own name"),
-			('collection', 'Collection', "Match the item's primary parent collection"),
-			('collections', 'Collections', "Match any parent collection the item resides in"),
-			],
-		default='item')
-	
-	
-	
 	# Marker
 	driver_marker_name: bpy.props.StringProperty(
 		name="Marker",
@@ -933,13 +918,47 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name='Clamp',
 		description='Type of marker value',
 		items=[
-			('INF', 'Infinite', 'Float values before and after the range will continue the value ramp'),
-			('CLAMP', 'Clamped', 'Clamp value ramp to 0-1 range'),
+			('EXTEND', 'Extend', 'Float values before and after the range will continue the value ramp'),
+			('CLAMP', 'Clamp', 'Clamp value ramp to 0-1 range'),
 			],
-		default='INF')
+		default='EXTEND')
+	driver_range_mode: bpy.props.EnumProperty(
+		name='Mode',
+		description='Marker Range output mode',
+		items=[
+			('EXTEND', 'Extend', 'Extend the value ramp beyond the range in both directions'),
+			('CLAMP', 'Clamp', 'Clamp the value ramp to the value range with optional easing'),
+			('SWITCH', 'Switch', 'Output value B while inside the range, otherwise value A'),
+			],
+		default='EXTEND')
 	driver_marker_duration: bpy.props.FloatProperty(
 		name="Duration",
 		default=1.0)
+	
+	
+	
+	# Marker Match
+	driver_match_source: bpy.props.EnumProperty(
+		name='Source',
+		description='Name to compare against the nearest marker at or before the current frame',
+		items=[
+			('item', 'Item', "Match the object's own name"),
+			('collection', 'Collection', "Match the item's primary parent collection"),
+			('collections', 'Collections', "Match any parent collection the item resides in"),
+			],
+		default='item')
+	driver_match_mode: bpy.props.EnumProperty(
+		name='Mode',
+		description='Value output mode when the nearest marker matches the source name',
+		items=[
+			('FRAME', 'Frame', 'Output the frame number of the matched marker'),
+			('EXTEND', 'Extend', 'Ramp from the matched marker to the next marker, extending the ramp beyond the value range in both directions'),
+			('CLAMP', 'Clamp', 'Ramp from the matched marker to the next marker, clamped to the value range with optional easing'),
+			('SWITCH', 'Switch', 'Output value B when the nearest marker at or previous to the current frame matches, otherwise value A'),
+			],
+		default='FRAME')
+	
+	
 	
 	# Find & Replace marker names and driver expressions
 	driver_marker_find: bpy.props.StringProperty(
