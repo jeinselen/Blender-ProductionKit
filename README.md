@@ -70,7 +70,7 @@
         - Use the context menu on any property field to `Add Marker Match Driver`; this sets up a new driver with `Use Self` enabled along with all the settings defined in the UI panel
         - Copying the driver text is still possible from the UI panel _but it cannot toggle the appropriate setting_, which would need to be manually changed in the edit driver popup panel
       - Optional: name source (`item`, `collection`, or `collections`), output mode (`switch`, `frame`, `extend`, or `clamp`), value A, value B, interpolation type, easing (`in`, `out`, `inout`)
-        - Use the "Update Legacy Marker Drivers" button in the Find & Replace sub-section to automatically find and fix outdated drivers (this will not update generic matchMarker(self) drivers; previous versions defaulted to 'switch' but now use 'frame')
+        - Use the "Update Legacy Marker Drivers" button in the Find & Replace sub-section to automatically find and fix outdated drivers (optionally update generic matchMarker(self) drivers; previous versions defaulted to 'switch' but now use 'frame')
     - `random(0.0, 1.0, frame)`
       - Returns a random value within the specified range based on input seed
       - Required: value A (range minimum), value B (range maximum), seed (any float value)

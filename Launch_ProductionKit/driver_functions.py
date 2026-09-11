@@ -712,9 +712,9 @@ def build_marker_match_expression(settings):
 #	Rewrite legacy markerRange() and markerMatch() calls to the	current argument order
 #	`markerRange` 3rd positional arg: legacy bool clamp -> 'extend' / 'clamp' mode string
 #	`markerMatch` legacy value form markerMatch(self, 'src', a[, b]) with a numeric third argument -> markerMatch(self, 'src', 'switch', a[, b]), preserving the old 0/1 style
-#	The ambiguous bare markerMatch(self) and source-only markerMatch(self, 'src') forms are NOT touched: they are valid (frame-mode) new syntax, so rewriting them could break a current file. Adjust those by hand if upgrading from a build where they meant 'switch'.
+#	When match_switch is True, the plain forms markerMatch(self) and markerMatch(self, 'src') also gain an explicit 'switch' mode. These are ambiguous (they are valid new frame-mode syntax too), so this is opt-in for upgrading a project made before Marker Match gained output modes, where those forms always meant Switch.
 
-def _migrate_marker_expression(expr):
+def _migrate_marker_expression(expr, match_switch=False):
 	try:
 		tree = ast.parse(expr, mode='eval')
 	except SyntaxError:
@@ -728,12 +728,23 @@ def _migrate_marker_expression(expr):
 			if isinstance(a3, ast.Constant) and isinstance(a3.value, bool):
 				node.args[2] = ast.Constant('clamp' if a3.value else 'extend')
 				changed = True
-		elif node.func.id == 'markerMatch' and len(node.args) >= 3:
-			a3 = node.args[2]
-			# A numeric third argument is the legacy value slot; a string there is already a mode
-			if isinstance(a3, ast.Constant) and isinstance(a3.value, (int, float)) and not isinstance(a3.value, bool):
-				node.args.insert(2, ast.Constant('switch'))
-				changed = True
+		elif node.func.id == 'markerMatch':
+			args = node.args
+			if len(args) >= 3:
+				a3 = args[2]
+				# A numeric third argument is the legacy value slot; a string there is already a mode
+				if isinstance(a3, ast.Constant) and isinstance(a3.value, (int, float)) and not isinstance(a3.value, bool):
+					args.insert(2, ast.Constant('switch'))
+					changed = True
+			elif match_switch:
+				# Plain pre-modes forms: markerMatch(self) / markerMatch(self, 'src') -> explicit Switch
+				if len(args) == 1:
+					args.append(ast.Constant('item'))
+					args.append(ast.Constant('switch'))
+					changed = True
+				elif len(args) == 2 and isinstance(args[1], ast.Constant) and isinstance(args[1].value, str):
+					args.append(ast.Constant('switch'))
+					changed = True
 	if not changed:
 		return expr, False
 	ast.fix_missing_locations(tree)
@@ -922,11 +933,20 @@ class WM_OT_migrate_marker_drivers(bpy.types.Operator):
 	bl_idname = "wm.migrate_marker_drivers"
 	bl_label = "Update Legacy Marker Drivers"
 	bl_options = {'REGISTER', 'UNDO'}
-	
+
+	match_switch: bpy.props.BoolProperty(
+		name="Plain Match → Switch",
+		description="Also treat markerMatch(self) and markerMatch(self, 'source') as Switch drivers and append 'switch'. Enable when upgrading a project made before Marker Match had output modes (where these always meant Switch); leave off for files that intentionally use the new Frame mode",
+		default=True)
+
 	def invoke(self, context, event):
-		# Rewrites expressions across the whole file, so confirm before running
-		return context.window_manager.invoke_confirm(self, event)
-	
+		# Rewrites expressions across the whole file, so confirm (and expose the option) before running
+		return context.window_manager.invoke_props_dialog(self)
+
+	def draw(self, context):
+		col = self.layout.column()
+		col.prop(self, "match_switch")
+
 	def execute(self, context):
 		scanned = 0
 		updated = 0
@@ -935,7 +955,7 @@ class WM_OT_migrate_marker_drivers(bpy.types.Operator):
 			if not expression or ('markerRange' not in expression and 'markerMatch' not in expression):
 				continue
 			scanned += 1
-			new_expression, changed = _migrate_marker_expression(expression)
+			new_expression, changed = _migrate_marker_expression(expression, self.match_switch)
 			if changed:
 				driver.expression = new_expression
 				updated += 1
