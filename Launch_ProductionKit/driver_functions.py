@@ -437,6 +437,23 @@ def lerp(a, b, c):
 
 
 
+#	Shared relative/seconds/clamp/ease/value-range tail for markerValue, markerPrev, and markerNext
+#	(kept identical to the original inline blocks: seconds gating clamp/ease/lerp, relative applied first)
+def _apply_time_options(frame, scene, frame_current, relative, seconds, clamp, duration, a, b, ease_type, direction):
+	if relative:
+		frame = frame_current - frame
+	if seconds:
+		frame /= scene.render.fps / scene.render.fps_base
+		if clamp:
+			frame = min(max(frame / duration, 0), 1)
+			if ease_type != 'linear':
+				frame = get_ease(frame, ease_type, direction)
+		if a != 0 or b != 1:
+			frame = (a * (1 - frame)) + (b * frame)
+	return frame
+
+
+
 #	markerValue(required: marker name, optional: static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
 #	markerValue('marker_1')
 #	markerValue('marker_1', False, True)
@@ -444,21 +461,11 @@ def lerp(a, b, c):
 #	markerValue('marker_1', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
 def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
-	frame = 0
 	frame_by_name = _marker_snapshot(scene).frame_by_name
-	if name in frame_by_name:
-		frame = frame_by_name[name]
-		if relative:
-			frame = scene.frame_current - frame
-		if seconds:
-			frame /= scene.render.fps / scene.render.fps_base
-			if clamp:
-				frame = min(max(frame/duration, 0), 1)
-				if ease_type != 'linear':
-					frame = get_ease(frame, ease_type, direction)
-			if a != 0 or b != 1:
-				frame = (a * (1 - frame)) + (b * frame)
-	return frame
+	if name not in frame_by_name:
+		return 0
+	frame = frame_by_name[name]
+	return _apply_time_options(frame, scene, scene.frame_current, relative, seconds, clamp, duration, a, b, ease_type, direction)
 
 #	markerPrev(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
 #	markerPrev('')
@@ -466,31 +473,33 @@ def marker_value(name, relative=False, seconds=False, clamp=False, duration=1, a
 #	markerPrev('marker_', False, True)
 #	markerPrev('marker_', True, True, True, 1.0)
 #	markerPrev('marker_', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
-def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
+def marker_prev(filter_str=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_start
-	markers = _marker_snapshot(scene).markers
+	snapshot = _marker_snapshot(scene)
+	markers = snapshot.markers
 	# Find closest marker frame at or before current frame
 	if markers:
-		frame = -100000
-		marker_found = False
-		for marker_frame, marker_name in markers:
-			if (name and name in marker_name) or not name:
-				marker_found = True
-				if marker_frame <= scene.frame_current and marker_frame > frame:
-					frame = marker_frame
-		if not marker_found:
-			frame = scene.frame_start
-		if relative:
-			frame = scene.frame_current - frame
-		if seconds:
-			frame /= scene.render.fps / scene.render.fps_base
-			if clamp:
-				frame = min(max(frame/duration, 0), 1)
-				if ease_type != 'linear':
-					frame = get_ease(frame, ease_type, direction)
-			if a != 0 or b != 1:
-				frame = (a * (1 - frame)) + (b * frame)
+		frame_current = scene.frame_current
+		if not filter_str:
+			# Unfiltered: the nearest marker at or before the current frame is already precomputed
+			# (-100000 when none precede the playhead, matching the original loop's fallthrough)
+			frame = snapshot.active_frame
+		else:
+			# Filtered: largest matching frame at or before the playhead. Markers are sorted ascending,
+			# so once we pass the playhead with a match already held there is nothing left to improve.
+			frame = -100000
+			marker_found = False
+			for marker_frame, marker_name in markers:
+				if marker_frame > frame_current and frame != -100000:
+					break
+				if filter_str in marker_name:
+					marker_found = True
+					if marker_frame <= frame_current:
+						frame = marker_frame
+			if not marker_found:
+				frame = scene.frame_start
+		frame = _apply_time_options(frame, scene, frame_current, relative, seconds, clamp, duration, a, b, ease_type, direction)
 	return frame
 
 #	markerNext(optional: text filter, static or relative time, frames or seconds, clamp, duration, start value, end value, easing type, easing direction)
@@ -499,31 +508,26 @@ def marker_prev(name=False, relative=False, seconds=False, clamp=False, duration
 #	markerNext('marker_', False, True)
 #	markerNext('marker_', True, True, True, 1.0)
 #	markerNext('marker_', True, True, True, 1.0, -0.5, 0.5, 'smooth', 'inout')
-def marker_next(name=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
+def marker_next(filter_str=False, relative=False, seconds=False, clamp=False, duration=1, a=0, b=1, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	frame = scene.frame_end
 	markers = _marker_snapshot(scene).markers
 	# Find closest marker frame at or after current frame
 	if markers:
+		frame_current = scene.frame_current
+		# Markers are sorted ascending, so the first match at or after the playhead is the nearest one
 		frame = 100000
 		marker_found = False
 		for marker_frame, marker_name in markers:
-			if (name and name in marker_name) or not name:
-				marker_found = True
-				if marker_frame >= scene.frame_current and marker_frame < frame:
-					frame = marker_frame
+			if filter_str and filter_str not in marker_name:
+				continue
+			marker_found = True
+			if marker_frame >= frame_current:
+				frame = marker_frame
+				break
 		if not marker_found:
 			frame = scene.frame_end
-		if relative:
-			frame = scene.frame_current - frame
-		if seconds:
-			frame /= scene.render.fps / scene.render.fps_base
-			if clamp:
-				frame = min(max(frame/duration, 0), 1)
-				if ease_type != 'linear':
-					frame = get_ease(frame, ease_type, direction)
-			if a != 0 or b != 1:
-				frame = (a * (1 - frame)) + (b * frame)
+		frame = _apply_time_options(frame, scene, frame_current, relative, seconds, clamp, duration, a, b, ease_type, direction)
 	return frame
 
 #	markerRange(required: marker start, marker end, optional: mode, start value, end value, easing type, easing direction)
@@ -538,13 +542,14 @@ def marker_range(start, end, mode='extend', a=0, b=1, ease_type='linear', direct
 	if start in frame_by_name and end in frame_by_name:
 		start = frame_by_name[start]
 		end = frame_by_name[end]
+		frame_current = scene.frame_current
 		# Switch: value B while inside the range, value A outside of it
 		if mode == 'switch':
-			return b if start <= scene.frame_current < end else a
+			return b if start <= frame_current < end else a
 		# Zero-width range (two differently named markers on the same frame): avoid divide-by-zero
 		if end == start:
-			return b if scene.frame_current >= start else a
-		c = (scene.frame_current - start) / (end - start)
+			return b if frame_current >= start else a
+		c = (frame_current - start) / (end - start)
 		if mode == 'clamp':
 			c = min(max(c, 0), 1)
 			if ease_type != 'linear':
@@ -555,17 +560,51 @@ def marker_range(start, end, mode='extend', a=0, b=1, ease_type='linear', direct
 	else:
 		return 0.0
 
-#	markerMatch(required: self, optional: source, mode, value A, value B, easing type, easing direction)
-#	markerMatch(self)
-#	markerMatch(self, 'collection')
-#	markerMatch(self, 'collections')
-#	markerMatch(self, 'item', 'switch', 2.0, 3.0)
-#	markerMatch(self, 'item', 'frame')
-#	markerMatch(self, 'item', 'clamp', 0.0, 1.0, 'smooth', 'inout')
+# First marker strictly after `after_frame` whose name contains `filter_str` ('' matches any)
+def _next_marker_frame(markers, after_frame, filter_str=''):
+	for marker_frame, marker_name in markers:
+		if marker_frame > after_frame and (not filter_str or filter_str in marker_name):
+			return marker_frame
+	return None
+
+# Earliest marker whose name is in names (markers is sorted by frame); None if no match
+def _first_match_frame(markers, names):
+	for marker_frame, marker_name in markers:
+		if marker_name in names:
+			return marker_frame
+	return None
+
+# Nearest match at or before the current frame, falling back to the earliest match
+# so ranges extrapolate before the first occurrence; None if no match
+def _active_match_frame(markers, names, frame_current):
+	start = first = None
+	for marker_frame, marker_name in markers:
+		# Markers are sorted ascending: once past the playhead with the earliest match already found,
+		# `start` can no longer change and `first` is settled, so there is nothing left to scan
+		if marker_frame > frame_current and first is not None:
+			break
+		if marker_name in names:
+			if first is None:
+				first = marker_frame
+			if marker_frame <= frame_current:
+				start = marker_frame
+	return start if start is not None else first
+
+#	markerMatch(required: self, optional: source, filter, mode, value A, value B, easing type, easing direction)
+#	markerMatch(self) = frame number of the marker exactly matching the name of the item this driver is attached to, or 0 if no marker found
+#	markerMatch(self, 'collection') = matches against the name of the primary collection the item is in
+#	markerMatch(self, 'collections') = matches against the name of any collection the item is in
+#	markerMatch(self, 'item', 'walk_', 'frame', 0.5) = matches against the item name and the next marker that follows it that contains the specified string, returning the frame number halfway between the two markers
+#	markerMatch(self, 'item', '', 'switch', 2.0, 3.0) = returns 3 if within the valid range (exact match >= current frame > next marker on timeline) and 2 if not
+#	markerMatch(self, 'item', '', 'clamp', 0.0, 1.0, 'smooth', 'inout') = returns interpolation of the valid range
 #	Sources: 'item' (default), 'collection', 'collections'
+#	Filter: '' matches any marker as the range end (default); a string limits the range end to markers that contain the string (the exact-match start marker is never filtered)
 #	Modes: 'frame' (default), 'extend', 'clamp', 'switch'
+#	'frame' is a STATIC value - the first matching marker's frame, the same regardless of the current frame
+#	'switch'/'extend'/'clamp' are playhead-relative - they anchor to the nearest matching marker at or before the current frame
+#	Frame mode value A is a 0-1 position along the detected range: 0.0 = matched marker (default), 1.0 = next marker
 #	IMPORTANT: requires "Use Self" to be toggled on in the driver settings
-def marker_match(self, source='item', mode='frame', a=0.0, b=1.0, ease_type='linear', direction='inout'):
+def marker_match(self, source='item', filter_str='', mode='frame', a=0.0, b=1.0, ease_type='linear', direction='inout'):
 	scene = bpy.context.scene
 	# self is the property owner; id_data resolves to the owning object (also covers bones)
 	obj = getattr(self, "id_data", None)
@@ -579,9 +618,7 @@ def marker_match(self, source='item', mode='frame', a=0.0, b=1.0, ease_type='lin
 	# Per-frame snapshot shared by every marker driver (see _MarkerSnapshot)
 	snapshot = _marker_snapshot(scene)
 	markers = snapshot.markers
-	# Closest marker at or before current frame (precomputed once for the whole frame)
-	active = snapshot.active_name
-	active_frame = snapshot.active_frame
+	frame_current = scene.frame_current
 	# Build the set of name(s) to compare against
 	source = str(source).lower()
 	if source == 'collections':
@@ -591,42 +628,49 @@ def marker_match(self, source='item', mode='frame', a=0.0, b=1.0, ease_type='lin
 		names = {collections[0].name} if collections else set()
 	else:
 		names = {obj.name}
-	matched = active in names
 	mode = str(mode).lower()
-	# Frame mode (default): the frame of the matched marker (0.0 when there is no match)
+	# Frame mode (default): a STATIC value - the first matching marker's frame, or a 0-1 position
+	# (value A) along the range to the next marker. Independent of the current frame.
 	if mode == 'frame':
-		return float(active_frame) if matched else 0.0
-	# Switch mode: value B on match, value A otherwise
+		start_frame = _first_match_frame(markers, names)
+		if start_frame is None:
+			return 0.0
+		# Position 0 (default): the matched marker frame, no range scan needed
+		if a == 0.0:
+			return float(start_frame)
+		# Position > 0: interpolate toward the next marker (range end optionally limited by the filter)
+		end_frame = _next_marker_frame(markers, start_frame, filter_str)
+		if end_frame is None:
+			return float(start_frame)
+		return start_frame + a * (end_frame - start_frame)
+	# Switch mode: value B while the playhead is inside a matched range, value A otherwise
 	if mode == 'switch':
-		return b if matched else a
-	# Extend / Clamp: map [0,1] from the matched marker to the next marker in the timeline
-	# Start of the range: nearest matching marker at or before the current frame, falling
-	# back to the earliest matching marker so the ramp extrapolates negatively before it.
-	# markers is sorted by frame, so the first match is the earliest and the last
-	# match at or before the current frame is the range start.
-	start_frame = None
-	first_match = None
-	frame_current = scene.frame_current
-	for marker_frame, marker_name in markers:
-		if marker_name in names:
-			if first_match is None:
-				first_match = marker_frame
-			if marker_frame <= frame_current:
-				start_frame = marker_frame
-	if start_frame is None:
-		start_frame = first_match
+		# Unfiltered: the range ends at the very next marker, so the state is simply whether the
+		# nearest marker at or before the current frame is an exact match (precomputed snapshot)
+		if not filter_str:
+			return b if snapshot.active_name in names else a
+		# Filtered: the range ends at the next marker containing the filter, ignoring markers that
+		# do not. Scan for the nearest relevant marker at or before the current frame - relevant
+		# meaning an exact match (which starts a range, filter or not) or a filter match (which ends one).
+		# An exact-match start marker takes precedence even when it also contains the filter string.
+		nearest_is_match = None
+		for marker_frame, marker_name in markers:
+			if marker_frame > frame_current:
+				break
+			exact = marker_name in names
+			if exact or filter_str in marker_name:
+				nearest_is_match = exact
+		return b if nearest_is_match else a
+	# Extend / Clamp: map [0,1] from the active matched marker to the next marker in the timeline
+	start_frame = _active_match_frame(markers, names, frame_current)
 	if start_frame is None:
 		return a
-	# End of the range: nearest marker (of any name) strictly after the start marker.
-	# The list is sorted, so the first one past start_frame is the nearest.
-	end_frame = None
-	for marker_frame, marker_name in markers:
-		if marker_frame > start_frame:
-			end_frame = marker_frame
-			break
-	if end_frame is None or end_frame == start_frame:
+	# End of the range: nearest marker strictly after the start marker whose name contains
+	# the filter ('' matches any). The exact-match start marker is never filtered.
+	end_frame = _next_marker_frame(markers, start_frame, filter_str)
+	if end_frame is None:
 		return b
-	c = (scene.frame_current - start_frame) / (end_frame - start_frame)
+	c = (frame_current - start_frame) / (end_frame - start_frame)
 	if mode == 'clamp':
 		c = min(max(c, 0), 1)
 		if ease_type != 'linear':
@@ -684,24 +728,33 @@ def build_marker_range_expression(settings):
 #	Build the shortest valid markerMatch() expression from the panel settings
 def build_marker_match_expression(settings):
 	source = settings.driver_match_source.lower()
+	filter_str = settings.driver_marker_string if settings.driver_marker_filter else ''
 	mode = settings.driver_match_mode
+	# Frame mode is the runtime default; value A carries the 0-1 range position
+	if mode == 'FRAME':
+		position = settings.driver_match_position
+		# Compact forms when there is no filter and no position offset
+		if filter_str == '' and position == 0.0:
+			if source != 'item':
+				return f"markerMatch(self, '{source}')"
+			return "markerMatch(self)"
+		# A position offset needs the explicit 'frame' mode to reach the value slot
+		if position != 0.0:
+			return f"markerMatch(self, '{source}', '{filter_str}', 'frame', {position})"
+		# Filter only: filter alone is enough (mode defaults to frame)
+		return f"markerMatch(self, '{source}', '{filter_str}')"
 	a = settings.driver_value_a
 	b = settings.driver_value_b
-	# Frame mode is the runtime default, so it takes the compact forms and ignores the value range
-	if mode == 'FRAME':
-		if source != 'item':
-			return f"markerMatch(self, '{source}')"
-		return "markerMatch(self)"
 	# Switch mode must state 'switch' explicitly (omitting the mode would fall back to 'frame')
 	if mode == 'SWITCH':
 		if a != 0.0 or b != 1.0:
-			return f"markerMatch(self, '{source}', 'switch', {a}, {b})"
-		return f"markerMatch(self, '{source}', 'switch')"
+			return f"markerMatch(self, '{source}', '{filter_str}', 'switch', {a}, {b})"
+		return f"markerMatch(self, '{source}', '{filter_str}', 'switch')"
 	# Extend / Clamp ramp between the matched marker and the next one
 	# (the runtime mode keyword is just the lowercase enum identifier)
-	expression = f"markerMatch(self, '{source}', '{mode.lower()}', {a}, {b}"
+	expression = f"markerMatch(self, '{source}', '{filter_str}', '{mode.lower()}', {a}, {b}"
 	if mode == 'CLAMP' and settings.driver_ease_type != 'linear':
-		expression += f", ease_type='{settings.driver_ease_type}', direction='{settings.driver_ease_direction}'"
+		expression += f", '{settings.driver_ease_type}', '{settings.driver_ease_direction}'"
 	return expression + ")"
 
 
@@ -712,7 +765,14 @@ def build_marker_match_expression(settings):
 #	Rewrite legacy markerRange() and markerMatch() calls to the	current argument order
 #	`markerRange` 3rd positional arg: legacy bool clamp -> 'extend' / 'clamp' mode string
 #	`markerMatch` legacy value form markerMatch(self, 'src', a[, b]) with a numeric third argument -> markerMatch(self, 'src', 'switch', a[, b]), preserving the old 0/1 style
+#	`markerMatch` gained a filter (range-end) string between source and mode. Legacy mode-bearing calls
+#	markerMatch(self, 'src', 'mode', ...) predate it, so an empty filter '' is inserted -> markerMatch(self, 'src', '', 'mode', ...).
+#	Detection: the mode slot holds a known mode keyword and the arg after it is not also a mode keyword (which would mean the
+#	string is already a filter). A brand-new filter string that happens to equal a mode keyword with no explicit mode after it
+#	(e.g. markerMatch(self, 'item', 'clamp')) is indistinguishable from the legacy form and would be rewritten - avoid mode words as filters.
 #	When match_switch is True, the plain forms markerMatch(self) and markerMatch(self, 'src') also gain an explicit 'switch' mode. These are ambiguous (they are valid new frame-mode syntax too), so this is opt-in for upgrading a project made before Marker Match gained output modes, where those forms always meant Switch.
+
+_MARKER_MATCH_MODES = ('frame', 'extend', 'clamp', 'switch')
 
 def _migrate_marker_expression(expr, match_switch=False):
 	try:
@@ -730,6 +790,7 @@ def _migrate_marker_expression(expr, match_switch=False):
 				changed = True
 		elif node.func.id == 'markerMatch':
 			args = node.args
+			# Step 1: pre-modes value form (numeric mode slot) -> explicit 'switch' mode
 			if len(args) >= 3:
 				a3 = args[2]
 				# A numeric third argument is the legacy value slot; a string there is already a mode
@@ -744,6 +805,15 @@ def _migrate_marker_expression(expr, match_switch=False):
 					changed = True
 				elif len(args) == 2 and isinstance(args[1], ast.Constant) and isinstance(args[1].value, str):
 					args.append(ast.Constant('switch'))
+					changed = True
+			# Step 2: pre-filter forms carry the mode in the filter slot -> insert an empty filter ahead of it
+			if len(args) >= 3:
+				a3 = args[2]
+				a4 = args[3] if len(args) >= 4 else None
+				third_is_mode = isinstance(a3, ast.Constant) and a3.value in _MARKER_MATCH_MODES
+				fourth_is_mode = isinstance(a4, ast.Constant) and a4.value in _MARKER_MATCH_MODES
+				if third_is_mode and not fourth_is_mode:
+					args.insert(2, ast.Constant(''))
 					changed = True
 	if not changed:
 		return expr, False
@@ -873,48 +943,13 @@ class WM_OT_find_replace_marker_expression(bpy.types.Operator):
 					markers_modified += 1
 					print(f"Modified marker: {marker.name}")
 		
-		# Process all objects and their drivers
-		for obj in bpy.data.objects:
-			# Check if object has animation data
-			if obj.animation_data and obj.animation_data.drivers:
-				for driver in obj.animation_data.drivers:
-					# Check the driver's expression
-					if driver.driver and driver.driver.expression:
-						if find in driver.driver.expression:
-							driver.driver.expression = driver.driver.expression.replace(
-								find, replace
-							)
-							drivers_modified += 1
-							print(f"Modified driver on {obj.name}: {driver.data_path}")
-		
-		# Also check other data types that can have drivers
-		data_collections = [
-			bpy.data.materials,
-			bpy.data.node_groups,
-			bpy.data.scenes,
-			bpy.data.worlds,
-			bpy.data.lights,
-			bpy.data.cameras,
-			bpy.data.meshes,
-			bpy.data.curves,
-			bpy.data.metaballs,
-			bpy.data.lattices,
-			bpy.data.armatures,
-			bpy.data.speakers,
-			bpy.data.textures,
-		]
-		
-		for collection in data_collections:
-			for data_item in collection:
-				if data_item.animation_data and data_item.animation_data.drivers:
-					for driver in data_item.animation_data.drivers:
-						if driver.driver and driver.driver.expression:
-							if find in driver.driver.expression:
-								driver.driver.expression = driver.driver.expression.replace(
-									find, replace
-								)
-								drivers_modified += 1
-								print(f"Modified driver on {data_item.name}: {driver.data_path}")
+		# Process every driver in the file (single de-duplicated walk across all datablock types)
+		for data_item, fcurve, driver in _iter_drivers():
+			expression = driver.expression
+			if expression and find in expression:
+				driver.expression = expression.replace(find, replace)
+				drivers_modified += 1
+				print(f"Modified driver on {data_item.name}: {fcurve.data_path}")
 		
 		# Print summary
 		print(f"\n--- Find & Replace Complete ---")
@@ -1076,6 +1111,12 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			# Error tracker
 			error = ''
 			
+			# Warning tracker
+			warn = ''
+			
+			# Info tracker
+			info = ''
+			
 			# Curve At Time
 			if settings.driver_select == 'CURVE':
 				if context.active_object:
@@ -1091,7 +1132,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					error = 'no active object'
 			
 			# Ease
-			if settings.driver_select == 'EASE':
+			elif settings.driver_select == 'EASE':
 				row1 = col.row(align=True)
 				row1.prop(settings, 'driver_value_t', text='')
 				row1.prop(settings, 'driver_ease_type', text='')
@@ -1100,7 +1141,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				driver = f"ease({settings.driver_value_t}, '{settings.driver_ease_type}', '{settings.driver_ease_direction}')"
 			
 			# Hash
-			if settings.driver_select == 'HASH':
+			elif settings.driver_select == 'HASH':
 				row1 = col.row(align=True)
 				row1.prop(settings, 'driver_var_project', toggle=1)
 				row1.prop(settings, 'driver_var_scene', toggle=1)
@@ -1119,7 +1160,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				driver += "')"
 			
 			# Lerp
-			if settings.driver_select == 'LERP':
+			elif settings.driver_select == 'LERP':
 				row1 = col.row(align=True)
 				row1.prop(settings, 'driver_value_a')
 				row1.prop(settings, 'driver_value_b')
@@ -1131,29 +1172,29 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			elif settings.driver_select == 'MARKER-RANGE':
 				if context.scene.timeline_markers:
 					mode = settings.driver_range_mode
-
+					
 					# Marker selection
 					col.prop_search(settings, "driver_marker_name", context.scene, "timeline_markers", text="")
 					col.prop_search(settings, "driver_marker_end", context.scene, "timeline_markers", text="")
 					col.separator()
-
+					
 					# Mode (Extend / Clamp / Switch)
-					row = col.row(align=True)
-					row.prop(settings, 'driver_range_mode', expand=True)
-
-					# Value range UI
 					rowA = col.row(align=True)
-					rowA.prop(settings, 'driver_value_a', text="")
-					rowA.prop(settings, 'driver_value_b', text="")
-
-					# Interpolation UI (only meaningful when clamped)
+					rowA.prop(settings, 'driver_range_mode', expand=True)
+					
+					# Value range UI
 					rowB = col.row(align=True)
+					rowB.prop(settings, 'driver_value_a', text="")
+					rowB.prop(settings, 'driver_value_b', text="")
+					
+					# Interpolation UI (only meaningful when clamped)
+					rowC = col.row(align=True)
 					if mode != 'CLAMP':
-						rowB.active = False
-						rowB.enabled = False
-					rowB.prop(settings, 'driver_ease_type', text="")
-					rowB.prop(settings, 'driver_ease_direction', text="")
-
+						rowC.active = False
+						rowC.enabled = False
+					rowC.prop(settings, 'driver_ease_type', text="")
+					rowC.prop(settings, 'driver_ease_direction', text="")
+					
 					if settings.driver_marker_name == '' or settings.driver_marker_end == '':
 						error = 'missing marker name'
 					elif settings.driver_marker_name == settings.driver_marker_end:
@@ -1166,36 +1207,50 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			# Marker Match
 			elif settings.driver_select == 'MARKER-MATCH':
 				if context.scene.timeline_markers:
+					
 					# Match source (Item / Collection / Collections)
 					row1 = col.row(align=True)
 					row1.prop(settings, 'driver_match_source', expand=True)
-					# Value mode (Frame / Extend / Clamp / Switch)
-					row2 = col.row(align=True)
-					row2.prop(settings, 'driver_match_mode', expand=True)
-					col.separator()
-
-					mode = settings.driver_match_mode
-
-					# Value range UI (unused for Frame mode)
-					rowA = col.row(align=True)
-					if mode == 'FRAME':
-						rowA.active = False
-						rowA.enabled = False
-					rowA.prop(settings, 'driver_value_a', text="")
-					rowA.prop(settings, 'driver_value_b', text="")
-
-					# Interpolation UI (only meaningful when clamped)
-					rowB = col.row(align=True)
-					if mode != 'CLAMP':
-						rowB.active = False
-						rowB.enabled = False
-					rowB.prop(settings, 'driver_ease_type', text="")
-					rowB.prop(settings, 'driver_ease_direction', text="")
 					col.separator()
 					
-					info = col.box().column(align=True)
-					info.label(text="Requires 'Use Self' enabled", icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
-					info.label(text="Right-click property field to 'Add Marker Match Driver'", icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
+					# Range filtering
+					row2 = col.row(align=True)
+					row2.prop(settings, 'driver_marker_filter', text='Range Filter', toggle=True)
+					option = row2.column(align=True)
+					if not settings.driver_marker_filter:
+						option.active = False
+						option.enabled = False
+					option.prop(settings, 'driver_marker_string', text='')
+					col.separator()
+					
+					# Value mode (Frame / Extend / Clamp / Switch)
+					rowA = col.row(align=True)
+					rowA.prop(settings, 'driver_match_mode', expand=True)
+					
+					mode = settings.driver_match_mode
+					
+					# Value range UI (unused for Frame mode)
+					rowB = col.row(align=True)
+					if mode == 'FRAME':
+						rowB.prop(settings, 'driver_match_position', text="", slider=True)
+					else:
+						rowB.prop(settings, 'driver_value_a', text="")
+						rowB.prop(settings, 'driver_value_b', text="")
+					
+					# Interpolation UI (only meaningful when clamped)
+					rowC = col.row(align=True)
+					if mode != 'CLAMP':
+						rowC.active = False
+						rowC.enabled = False
+					rowC.prop(settings, 'driver_ease_type', text="")
+					rowC.prop(settings, 'driver_ease_direction', text="")
+#					col.separator()
+					
+#					box = col.box().column(align=True)
+#					box.label(text="Requires 'Use Self' in driver", icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
+#					box.label(text="Right-click property field to 'Add Marker Match Driver'", icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
+					warn = "Requires 'Use Self' in driver"
+					info = "Right-click property to 'Add Marker Match Driver'"
 					
 					# Generate shortest allowed version of the driver string
 					driver = build_marker_match_expression(settings)
@@ -1241,9 +1296,9 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 					elif settings.driver_select in ['MARKER-PREV', 'MARKER-NEXT']:
 						# Marker selection
 						row1 = col.row(align=True)
-						row1.prop(settings, 'driver_marker_filter', expand=True)
-						option = col.row(align=True)
-						if settings.driver_marker_filter == 'ALL':
+						row1.prop(settings, 'driver_marker_filter', toggle=True)
+						option = row1.column(align=True)
+						if not settings.driver_marker_filter:
 							option.active = False
 							option.enabled = False
 						option.prop(settings, 'driver_marker_string', text='')
@@ -1262,13 +1317,9 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 						options.prop(settings, 'driver_marker_clamp', expand=True)
 						
 						direction = 'markerPrev' if settings.driver_select == 'MARKER-PREV' else 'markerNext'
-						string = settings.driver_marker_string if settings.driver_marker_filter == 'FILTER' else ''
+						string = settings.driver_marker_string if settings.driver_marker_filter else ''
 						
-						if len(settings.driver_marker_string) == 0:
-							error = 'missing filter string'
-						else:
-							# Short version for basic usage (interpolation added below)
-							driver = f"{direction}('{string}'"
+						driver = f"{direction}('{string}'"
 					
 					# Menu Error
 					else:
@@ -1337,7 +1388,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 			
 			# Copy to clipboard button
 			layout.separator()
-			button = layout.row()
+			button = layout.column(align=True)
 			text = '#' + driver
 			icon = 'COPYDOWN' # COPYDOWN PASTEDOWN
 			if len(error) > 0:
@@ -1347,6 +1398,13 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 				button.enabled = False
 			ops = button.operator(CopyDriverToClipboard.bl_idname, text=text, icon=icon)
 			ops.string = text
+			
+			if len(warn) > 0 or len(info) > 0:
+				box = button.box().column(align=True)
+				if len(warn) > 0:
+					box.label(text=warn, icon='STATUS_WARNING_FILLED') # STATUS_WARNING STATUS_WARNING_FILLED WARNING_LARGE
+				if len(info) > 0:
+					box.label(text=info, icon='INFO') # INFO STATUS_INFO STATUS_INFO_FILLED INFO_LARGE
 		
 		except Exception as exc:
 			print(str(exc) + " | Error in Production Kit Driver Functions panel")

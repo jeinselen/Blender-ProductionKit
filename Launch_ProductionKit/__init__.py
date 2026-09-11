@@ -861,7 +861,7 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	
 	
-	# Lerp / Mix (also used for Marker Range)
+	# Values for Lerp / Mix and Marker Ranges
 	driver_value_a: bpy.props.FloatProperty(
 		name="Start Value",
 		description='Value at the start of a mix, interpolation, or timeline range',
@@ -886,14 +886,18 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 		name="Marker",
 		description='Name of the target marker',
 		default="")
-	driver_marker_filter: bpy.props.EnumProperty(
-		name='Filter',
-		description='Marker filtering options',
-		items=[
-			('ALL', 'All Markers', 'Use all markers in the scene timeline'),
-			('FILTER', 'Filtered', 'Use only markers that contain the specified string'),
-			],
-		default='ALL')
+#	driver_marker_filter: bpy.props.EnumProperty(
+#		name='Filter',
+#		description='Marker filtering options',
+#		items=[
+#			('ALL', 'All', 'Use all markers in the scene timeline'),
+#			('FILTER', 'Filter', 'Use only markers that contain the specified string'),
+#			],
+#		default='ALL')
+	driver_marker_filter: bpy.props.BoolProperty(
+		name="Filter",
+		description="Enable/disable filtering marker names with the specified string",
+		default=False)
 	driver_marker_string: bpy.props.StringProperty(
 		name="Filter String",
 		description='String to check marker names against',
@@ -957,6 +961,15 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 			('SWITCH', 'Switch', 'Output value B when the nearest marker at or previous to the current frame matches, otherwise value A'),
 			],
 		default='FRAME')
+	driver_match_position: bpy.props.FloatProperty(
+		name='Position',
+		description='Relative location of the returned frame value from within the detected marker range',
+		subtype="FACTOR",
+		soft_min=0.0,
+		soft_max=1.0,
+		min=0.0,
+		max=1.0,
+		default=0.0)
 	
 	
 	
