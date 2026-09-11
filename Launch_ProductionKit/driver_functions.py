@@ -928,10 +928,10 @@ class WM_OT_find_replace_marker_expression(bpy.types.Operator):
 
 
 
-class WM_OT_migrate_marker_drivers(bpy.types.Operator):
-	"""Update legacy Marker Range and Marker Match driver expressions in this file to the current argument format.\nSafe to run more than once; only outdated expressions are changed"""
-	bl_idname = "wm.migrate_marker_drivers"
-	bl_label = "Update Legacy Marker Drivers"
+class WM_OT_update_legacy_drivers(bpy.types.Operator):
+	"""Update legacy driver expressions in this file to the current argument format (currently Marker Range and Marker Match).\nSafe to run more than once; only outdated expressions are changed"""
+	bl_idname = "wm.update_legacy_drivers"
+	bl_label = "Update Legacy Drivers"
 	bl_options = {'REGISTER', 'UNDO'}
 
 	match_switch: bpy.props.BoolProperty(
@@ -961,12 +961,77 @@ class WM_OT_migrate_marker_drivers(bpy.types.Operator):
 				updated += 1
 				print(f"Updated driver on {data_item.name}: {fcurve.data_path} -> {new_expression}")
 		
-		print(f"\n--- Marker Driver Migration Complete ---")
-		print(f"Marker drivers scanned: {scanned}")
+		print(f"\n--- Legacy Driver Update Complete ---")
+		print(f"Legacy drivers scanned: {scanned}")
 		print(f"Drivers updated: {updated}")
-		print(  f"----------------------------------------\n")
+		print(  f"-------------------------------------\n")
+
+		self.report({'INFO'}, f"Updated {updated} of {scanned} legacy driver(s)")
+		return {'FINISHED'}
+
+
+
+#	Return (datablock, data_path, array_index, expression) for every driver orphaned after a property or node socket is removed
+def _iter_orphaned_drivers():
+	for data_item, fcurve, driver in _iter_drivers():
+		try:
+			# Driver data paths resolve relative to their owning datablock
+			data_item.path_resolve(fcurve.data_path)
+		except Exception:
+			yield data_item, fcurve.data_path, fcurve.array_index, driver.expression
+
+
+
+class WM_OT_delete_orphaned_drivers(bpy.types.Operator):
+	"""Find and delete drivers whose target property no longer exists (orphaned when a property or node socket is removed). Lists everything for review before deleting"""
+	bl_idname = "wm.delete_orphaned_drivers"
+	bl_label = "Delete Orphaned Drivers"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	# How many entries to spell out in the confirmation dialog before summarising the rest
+	_display_limit = 20
+	
+	def invoke(self, context, event):
+		# Scan up front so the confirmation dialog can list exactly what will be removed
+		self._orphans = list(_iter_orphaned_drivers())
+		if not self._orphans:
+			self.report({'INFO'}, "No orphaned drivers found")
+			return {'CANCELLED'}
+		return context.window_manager.invoke_props_dialog(self, width=520)
+	
+	def draw(self, context):
+		layout = self.layout
+		orphans = getattr(self, "_orphans", [])
+		layout.label(text=f"Delete {len(orphans)} orphaned driver(s)?", icon='TRASH')
+		box = layout.box().column(align=True)
+		for data_item, data_path, array_index, expression in orphans[:self._display_limit]:
+			box.label(text=f"{data_item.name}  —  {data_path}[{array_index}]", icon='DRIVER')
+		remainder = len(orphans) - self._display_limit
+		if remainder > 0:
+			box.label(text=f"…and {remainder} more")
+	
+	def execute(self, context):
+		removed = 0
+		done = set()
+		for data_item, data_path, array_index, expression in getattr(self, "_orphans", []):
+			# Deduplicate per (datablock, path): one call clears every channel of that path
+			key = (data_item.as_pointer(), data_path)
+			if key in done:
+				continue
+			done.add(key)
+			try:
+				# driver_remove matches the stored data path string, so unresolvable paths still clear
+				if data_item.driver_remove(data_path, -1):
+					removed += 1
+					print(f"Removed orphaned driver on {data_item.name}: {data_path} -> {expression!r}")
+			except Exception as exc:
+				print(f"Could not remove driver on {data_item.name}: {data_path} ({exc})")
 		
-		self.report({'INFO'}, f"Updated {updated} of {scanned} marker driver(s)")
+		print(f"\n--- Orphaned Driver Cleanup ---")
+		print(f"Orphaned drivers removed: {removed}")
+		print(  f"-------------------------------\n")
+		
+		self.report({'INFO'}, f"Removed {removed} orphaned driver(s)")
 		return {'FINISHED'}
 
 
@@ -1289,7 +1354,7 @@ class PRODUCTIONKIT_PT_driverFunctions(bpy.types.Panel):
 
 
 class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
-	bl_label = "Find & Replace"
+	bl_label = "Utilities"
 	bl_idname = "PRODUCTIONKIT_PT_driverFunctions_find_replace"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
@@ -1300,13 +1365,14 @@ class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
 	
 	@classmethod
 	def poll(cls, context):
-		return context.scene.timeline_markers and 'MARKER-' in context.scene.production_kit_settings.driver_select
+		# General driver-maintenance utilities, so always available under Driver Functions
+		return True
 	
 	def draw_header(self, context):
 		try:
 			layout = self.layout
 		except Exception as exc:
-			print(str(exc) + " | Error in Production Kit Driver Functions Find & Replace subpanel header")
+			print(str(exc) + " | Error in Production Kit Driver Functions Utilities subpanel header")
 	
 	def draw(self, context):
 		try:
@@ -1318,11 +1384,17 @@ class PRODUCTIONKIT_PT_driverFunctions_find_replace(bpy.types.Panel):
 			row = col.row(align=True)
 			row.operator(WM_OT_find_replace_marker_expression.bl_idname, icon='ZOOM_ALL') # ZOOM_ALL VIEWZOOM SORTBYEXT
 			col.separator()
-			# Upgrade older Marker Range / Marker Match driver expressions to the current format
+			
+			# Upgrade outdated driver expressions to the current format
 			row = col.row(align=True)
-			row.operator(WM_OT_migrate_marker_drivers.bl_idname, icon='FILE_REFRESH')
+			row.operator(WM_OT_update_legacy_drivers.bl_idname, icon='FILE_REFRESH')
+			col.separator()
+			
+			# Remove drivers where their target property no longer exists (common with Geometry Nodes systems)
+			row = col.row(align=True)
+			row.operator(WM_OT_delete_orphaned_drivers.bl_idname, icon='TRASH')
 		except Exception as exc:
-			print(str(exc) + " | Error in Production Kit Driver Functions Find & Replace subpanel")
+			print(str(exc) + " | Error in Production Kit Driver Functions Utilities subpanel")
 
 
 
@@ -1366,7 +1438,8 @@ classes = [
 	CopyDriverToClipboard,
 	PRODUCTIONKIT_OT_add_marker_match_driver,
 	WM_OT_find_replace_marker_expression,
-	WM_OT_migrate_marker_drivers
+	WM_OT_update_legacy_drivers,
+	WM_OT_delete_orphaned_drivers
 ]
 
 # Registered from the tab category set in the extension preferences, parent panel first

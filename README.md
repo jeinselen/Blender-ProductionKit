@@ -62,7 +62,7 @@
       - Returns a value scaled between two markers in the timeline
       - Required: starting marker, ending marker
       - Optional: mode (`extend`, `clamp`, or `switch`), start value, end value, interpolation type (same as listed above in the `ease()` documentation), easing direction (`in`, `out`, `inout`)
-        - Use the "Update Legacy Marker Drivers" button in the Find & Replace sub-section to automatically find and fix outdated drivers (previous versions of this extension used simpler clamp=True, and projects may need to be updated)
+        - Use the "Update Legacy Drivers" button in the Utilities sub-section to automatically find and fix outdated drivers (previous versions of this extension used simpler clamp=True, and projects may need to be updated)
     - `markerMatch(self, 'collection', 'clamp', 0.0, 1.0, ease_type='inv_cubic', direction='inout')`
       - Returns a value based on the nearest marker at or before the current time matching the name of the item or its collections (super helpful for using markers to define timeline segments)
       - Required: self
@@ -70,7 +70,7 @@
         - Use the context menu on any property field to `Add Marker Match Driver`; this sets up a new driver with `Use Self` enabled along with all the settings defined in the UI panel
         - Copying the driver text is still possible from the UI panel _but it cannot toggle the appropriate setting_, which would need to be manually changed in the edit driver popup panel
       - Optional: name source (`item`, `collection`, or `collections`), output mode (`switch`, `frame`, `extend`, or `clamp`), value A, value B, interpolation type, easing (`in`, `out`, `inout`)
-        - Use the "Update Legacy Marker Drivers" button in the Find & Replace sub-section to automatically find and fix outdated drivers (optionally update generic matchMarker(self) drivers; previous versions defaulted to 'switch' but now use 'frame')
+        - Use the "Update Legacy Drivers" button in the Utilities sub-section to automatically find and fix outdated drivers (optionally update generic markerMatch(self) drivers; previous versions defaulted to 'switch' but now use 'frame')
     - `random(0.0, 1.0, frame)`
       - Returns a random value within the specified range based on input seed
       - Required: value A (range minimum), value B (range maximum), seed (any float value)
@@ -79,6 +79,12 @@
       - Required: frequency (speed of the value changes), amplitude (value range), octaves (number of overlaid frequencies, noise detail), seed (any float value)
     
     ![Screenshot-DriverFunctions4](images/Screenshot-DriverFunctions.png)
+  
+  - #### Utilities
+  
+    - **Find & Replace:** replaces a string across all timeline marker names and driver expressions in the file at once
+    - **Update Legacy Drivers:** scans the whole file and rewrites outdated `markerRange()` and `markerMatch()` expressions to the current argument format; only outdated expressions are touched, so it is safe to re-run. The *Plain Match → Switch* option (on by default) also upgrades bare `markerMatch(self)` / `markerMatch(self, 'source')` drivers, which originally defaulted to *switch* mode before — leave this setting off for files that intentionally use the new *frame* mode
+    - **Delete Orphaned Drivers:** finds drivers whose target property no longer exists (for example, left behind when a Geometry Nodes socket or custom property is removed) and optionally delete them (this clears the `Invalid driver` warnings such orphans print to the console on file load)
   
 - ### Project Versioning
 
