@@ -10,6 +10,7 @@ from . import bpm_overlay
 from . import color_palette
 from . import cycle_transforms
 from . import driver_functions
+from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
 from . import project_version
@@ -1117,6 +1118,7 @@ def register():
 	color_palette.register()
 	cycle_transforms.register()
 	driver_functions.register()
+	node_layout.register()
 	project_version.register()
 	transfer_to_scene.register()
 	update_images.register()
@@ -1132,6 +1134,7 @@ def unregister():
 	color_palette.unregister()
 	cycle_transforms.unregister()
 	driver_functions.unregister()
+	node_layout.unregister()
 	project_version.unregister()
 	transfer_to_scene.unregister()
 	update_images.unregister()
@@ -1154,4 +1157,3 @@ if __package__ == "__main__":
 	except Exception:
 		pass
 	register()
-	
