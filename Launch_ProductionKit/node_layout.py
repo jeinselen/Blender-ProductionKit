@@ -1,6 +1,8 @@
 import math
 import bpy
 
+from . import utility_panel
+
 # Global Settings
 WIDTHS = (140.0, 200.0, 320.0)
 GRID_SIZE = 20.0
@@ -15,6 +17,16 @@ def _selected_nodes(context):
 	if edit_tree is None:
 		return ()
 	return tuple(node for node in edit_tree.nodes if node.select)
+
+def _active_node(context):
+	"""Return the active node from the node tree shown in this editor."""
+	space = context.space_data
+	if context.area.type != 'NODE_EDITOR' or space.type != 'NODE_EDITOR':
+		return None
+	edit_tree = space.edit_tree
+	if edit_tree is None:
+		return None
+	return edit_tree.nodes.active
 
 def _round_to_grid(value):
 	return math.floor((value / GRID_SIZE) + 0.5) * GRID_SIZE
@@ -118,6 +130,54 @@ def draw_node_menu(self, context):
 	self.layout.menu(PRODUCTIONKIT_MT_node_layout.bl_idname)
 
 
+class PRODUCTIONKIT_PT_node_layout(bpy.types.Panel):
+	"""Display and edit the active node's layout values"""
+	bl_idname = "PRODUCTIONKIT_PT_node_layout"
+	bl_label = "Node Layout"
+	bl_space_type = 'NODE_EDITOR'
+	bl_region_type = 'UI'
+	bl_category = "Node"
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "node_layout_category"
+	
+	@classmethod
+	def poll(cls, context):
+		return _active_node(context) is not None
+	
+	def draw(self, context):
+		node = _active_node(context)
+		layout = self.layout
+#		layout.use_property_decorate = False
+#		layout.use_property_split = False
+		
+		anchor = layout.split(factor=0.2)
+		label = anchor.column()
+		label.label(text="Position")
+		label.label(text="Width")
+		label.label(text="Align")
+		items = anchor.column()
+		
+		row = items.row(align=True)
+		row.prop(node, "location", index=0, text="")
+		row.prop(node, "location", index=1, text="")
+		row.prop(node, "width", text="")
+		
+		row = items.row(align=True)
+		operator = row.operator(PRODUCTIONKIT_OT_set_node_width.bl_idname, text="Nearest")
+		operator.adaptive = True
+		for width in WIDTHS:
+			operator = row.operator(PRODUCTIONKIT_OT_set_node_width.bl_idname, text=str(int(width)))
+			operator.width = width
+			
+		row = items.row(align=True)
+		for direction, text in (('LEFT', '←'), ('UP', '↑'), ('RIGHT', '→'), ('DOWN', '↓')):
+			operator = row.operator(PRODUCTIONKIT_OT_align_node_location.bl_idname, text=text)
+			operator.direction = direction
+		row.operator(PRODUCTIONKIT_OT_set_node_location_origin.bl_idname, text="0")
+		
+		
+
+
 
 # Registration
 classes = (
@@ -126,6 +186,10 @@ classes = (
 	PRODUCTIONKIT_OT_set_node_location_origin,
 	PRODUCTIONKIT_MT_node_layout,
 	)
+
+panels = [
+	PRODUCTIONKIT_PT_node_layout,
+	]
 
 keymaps = []
 
@@ -139,6 +203,7 @@ def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	bpy.types.NODE_MT_node.append(draw_node_menu)
+	utility_panel.register_panels(panels)
 	
 	keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor', space_type='NODE_EDITOR')
 	_add_keymap_item(keymap, PRODUCTIONKIT_OT_set_node_width.bl_idname, 'ACCENT_GRAVE', adaptive=True)
@@ -156,6 +221,8 @@ def unregister():
 		keymap.keymap_items.remove(keymap_item)
 	keymaps.clear()
 	
+	utility_panel.unregister_panels(panels)
 	bpy.types.NODE_MT_node.remove(draw_node_menu)
 	for cls in reversed(classes):
 		bpy.utils.unregister_class(cls)
+		

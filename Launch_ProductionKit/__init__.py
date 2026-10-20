@@ -87,6 +87,18 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		default="Node",
 		update=update_images_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+	########## Node Layout ##########
+
+	def update_node_layout_category(self, context):
+		utility_panel.register_panel(node_layout.PRODUCTIONKIT_PT_node_layout)
+
+	node_layout_category: bpy.props.StringProperty(
+		name="Node Editor",
+		description="Choose a node editor tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="Node",
+		update=update_node_layout_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
 	
 	# Global variables
 	enable_file_reload: bpy.props.BoolProperty(
@@ -501,9 +513,17 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 			row5.enabled = False
 		row5.prop(self, "filter5_colorspace", text='')
 		row5.prop(self, "filter5_alphamode", text='')
-		
-		
-		
+
+
+		########## Node Layout ##########
+
+		layout.separator(factor = 2.0)
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Node Layout", icon="NODETREE")
+		titlegrid.prop(self, "node_layout_category", text="", icon="NODETREE")
+
+
+
 		########## Timeline Overlays ##########
 		
 		layout.separator(factor = 2.0)
