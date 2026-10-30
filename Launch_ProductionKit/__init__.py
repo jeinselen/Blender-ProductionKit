@@ -10,6 +10,7 @@ from . import bpm_overlay
 from . import color_palette
 from . import cycle_transforms
 from . import driver_functions
+from . import driver_pickwhip
 from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
@@ -1138,6 +1139,7 @@ def register():
 	color_palette.register()
 	cycle_transforms.register()
 	driver_functions.register()
+	driver_pickwhip.register()
 	node_layout.register()
 	project_version.register()
 	transfer_to_scene.register()
@@ -1153,6 +1155,7 @@ def unregister():
 	bpm_overlay.unregister()
 	color_palette.unregister()
 	cycle_transforms.unregister()
+	driver_pickwhip.unregister()
 	driver_functions.unregister()
 	node_layout.unregister()
 	project_version.unregister()
