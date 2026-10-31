@@ -11,6 +11,7 @@ from . import color_palette
 from . import cycle_transforms
 from . import driver_functions
 from . import driver_pickwhip
+from . import easing_adjust
 from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
@@ -101,6 +102,29 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		update=update_node_layout_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
 	
+	########## Easing Adjust ##########
+
+	def update_easing_category_graph(self, context):
+		utility_panel.register_panel(easing_adjust.PRODUCTIONKIT_PT_easing_graph)
+
+	def update_easing_category_dopesheet(self, context):
+		utility_panel.register_panel(easing_adjust.PRODUCTIONKIT_PT_easing_dopesheet)
+
+	easing_category_graph: bpy.props.StringProperty(
+		name="Graph Editor",
+		description="Choose a graph editor tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="View",
+		update=update_easing_category_graph)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+	easing_category_dopesheet: bpy.props.StringProperty(
+		name="Dope Sheet",
+		description="Choose a dopesheet tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="View",
+		update=update_easing_category_dopesheet)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+
+
 	# Global variables
 	enable_file_reload: bpy.props.BoolProperty(
 		name="File Reload",
@@ -582,6 +606,17 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 
 
 
+		########## Easing Adjust ##########
+
+		layout.separator(factor = 2.0)
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Easing Adjust", icon="IPO_EASE_IN_OUT") # IPO_EASE_IN_OUT IPO_BEZIER
+		row = titlegrid.row()
+		row.prop(self, "easing_category_graph", text="", icon="GRAPH")
+		row.prop(self, "easing_category_dopesheet", text="", icon="ACTION")
+
+
+
 ###########################################################################
 # Local project settings
 
@@ -1036,6 +1071,51 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	
 	
+	########## Easing Adjust ##########
+
+	easing_mode: bpy.props.EnumProperty(
+		name="Mode",
+		description="Choose whether incoming and outgoing handles are adjusted independently, or symmetrically from a single set of sliders",
+		items=[
+			('ASYMMETRIC', 'Asymmetric', 'Adjust incoming and outgoing handles independently'),
+			('SYMMETRIC', 'Symmetric', 'Adjust incoming and outgoing handles together, mirrored from the outgoing sliders'),
+			],
+		default='ASYMMETRIC')
+	easing_incoming_x: bpy.props.FloatProperty(
+		name="Incoming X",
+		description="Relative time position of the incoming handle, between the previous keyframe (-1) and this one (0)",
+		subtype="FACTOR",
+		min=-1.0,
+		max=0.0,
+		default=-0.333333,
+		precision=3)
+	easing_incoming_y: bpy.props.FloatProperty(
+		name="Incoming Y",
+		description="Relative value position of the incoming handle, between the previous keyframe (-1) and this one (0)",
+		subtype="FACTOR",
+		min=-1.0,
+		max=0.0,
+		default=0.0,
+		precision=3)
+	easing_outgoing_x: bpy.props.FloatProperty(
+		name="Outgoing X",
+		description="Relative time position of the outgoing handle, between this keyframe (0) and the next one (1)",
+		subtype="FACTOR",
+		min=0.0,
+		max=1.0,
+		default=0.333333,
+		precision=3)
+	easing_outgoing_y: bpy.props.FloatProperty(
+		name="Outgoing Y",
+		description="Relative value position of the outgoing handle, between this keyframe (0) and the next one (1)",
+		subtype="FACTOR",
+		min=0.0,
+		max=1.0,
+		default=0.0,
+		precision=3)
+
+
+
 	########## Vertex Location Keyframes ##########
 	
 	vertex_location_x: bpy.props.BoolProperty(
@@ -1140,6 +1220,7 @@ def register():
 	cycle_transforms.register()
 	driver_functions.register()
 	driver_pickwhip.register()
+	easing_adjust.register()
 	node_layout.register()
 	project_version.register()
 	transfer_to_scene.register()
@@ -1157,6 +1238,7 @@ def unregister():
 	cycle_transforms.unregister()
 	driver_pickwhip.unregister()
 	driver_functions.unregister()
+	easing_adjust.unregister()
 	node_layout.unregister()
 	project_version.unregister()
 	transfer_to_scene.unregister()
@@ -1180,3 +1262,4 @@ if __package__ == "__main__":
 	except Exception:
 		pass
 	register()
+	
