@@ -16,6 +16,7 @@ from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
 from . import project_version
+from . import strip_time
 from . import update_images
 from . import vertex_locations
 from . import viewport_shading
@@ -428,6 +429,19 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		default="Launch",
 		update=update_keyframes_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+
+	########## Strip Time ##########
+
+	def update_strip_time_category(self, context):
+		utility_panel.register_panels(strip_time.panels)
+
+	strip_time_category: bpy.props.StringProperty(
+		name="Sequencer",
+		description="Choose a Sequencer tab category for the Strip Time panel to be placed in, or leave empty to hide the panel",
+		default="Tool",
+		update=update_strip_time_category)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
 	
 	
 	
@@ -614,6 +628,15 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		row = titlegrid.row()
 		row.prop(self, "easing_category_graph", text="", icon="GRAPH")
 		row.prop(self, "easing_category_dopesheet", text="", icon="ACTION")
+
+
+
+		########## Strip Time ##########
+
+		layout.separator(factor = 2.0)
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Strip Time", icon="TIME")
+		titlegrid.prop(self, "strip_time_category", text="", icon="SEQUENCE")
 
 
 
@@ -1223,6 +1246,7 @@ def register():
 	easing_adjust.register()
 	node_layout.register()
 	project_version.register()
+	strip_time.register()
 	transfer_to_scene.register()
 	update_images.register()
 	vertex_locations.register()
@@ -1241,6 +1265,7 @@ def unregister():
 	easing_adjust.unregister()
 	node_layout.unregister()
 	project_version.unregister()
+	strip_time.unregister()
 	transfer_to_scene.unregister()
 	update_images.unregister()
 	vertex_locations.unregister()
