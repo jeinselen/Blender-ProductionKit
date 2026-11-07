@@ -664,15 +664,28 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	
 	########## Audio Waveform ##########
 	
-	def update_waveform_show(self, context):
+	def update_waveform_refresh(self, context):
 		if self.waveform_show:
-			audio_waveforms.generate_waveform_overlay_data()
-			
+			audio_waveforms.generate_waveform_overlay_data(
+				audio_waveforms.get_waveform_source_scene(context))
+	
 	waveform_show: bpy.props.BoolProperty(
 		name='Show Waveforms',
 		description='Display audio waveform overlays in the Dopesheet and Timeline',
 		default=False,
-		update=update_waveform_show
+		update=update_waveform_refresh
+	)
+	waveform_audio_scope: bpy.props.EnumProperty(
+		name="Audio Source",
+		description="Which sequences to pull audio waveforms from",
+		items=[
+			('SELF', 'Self', "Only audio clips in this scene's own sequencer"),
+			('CHILDREN', 'Children', 'Also include audio from scenes nested inside this one via Scene Strips'),
+			('PARENTS', 'Parents', 'Also include audio from an edit this scene is nested inside, via a Scene Strip elsewhere'),
+			('ALL', 'All', 'Include audio from both nested scenes and any edit(s) this scene is nested inside')
+			],
+		default='SELF',
+		update=update_waveform_refresh
 	)
 	waveform_display_scale: bpy.props.FloatProperty(
 		name="Scale",
@@ -1192,12 +1205,13 @@ class VIEW3D_PT_timeline_overlays(bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		settings = context.scene.production_kit_settings
+		waveform_settings = audio_waveforms.get_waveform_settings(context)
 		prefs = context.preferences.addons[__package__].preferences
 		
-		if prefs.ffmpeg_processing:
+		if prefs.ffmpeg_processing and waveform_settings:
 			row = layout.row()
-			row.prop(settings, "waveform_show", text="Audio Waveforms")
-			if settings.waveform_show:
+			row.prop(waveform_settings, "waveform_show", text="Audio Waveforms")
+			if waveform_settings.waveform_show:
 				audio_waveforms._draw_waveform_ui(layout, context)
 		
 		row = layout.row()
@@ -1287,4 +1301,3 @@ if __package__ == "__main__":
 	except Exception:
 		pass
 	register()
-	
