@@ -13,6 +13,8 @@ from . import utility_panel
 # arbitrarily active shot scene.
 waveform_overlays = []
 draw_handler = None
+draw_handler_graph = None
+draw_handler_nla = None
 _waveform_source_scene_name = None
 _refresh_scheduled = False
 _msgbus_owner = object()
@@ -177,12 +179,15 @@ def _mapped_waveform_overlays(context=None):
 		yield mapped_overlay
 
 
+_SUPPORTED_AREA_TYPES = {'DOPESHEET_EDITOR', 'GRAPH_EDITOR', 'NLA_EDITOR'}
+
+
 def _tag_timeline_redraw():
 	"""Request a redraw after a Sequencer Scene change."""
 	window_manager = getattr(bpy.context, "window_manager", None)
 	for window in getattr(window_manager, "windows", []):
 		for area in getattr(window.screen, "areas", []):
-			if area.type in {'DOPESHEET_EDITOR', 'VIEW_3D'}:
+			if area.type in _SUPPORTED_AREA_TYPES or area.type == 'VIEW_3D':
 				area.tag_redraw()
 
 
@@ -439,7 +444,12 @@ def generate_waveform_overlay_data(source_scene=None):
 
 
 def draw_waveforms():
-	"""Draw mapped waveforms as overlays in the Dopesheet/Timeline."""
+	"""Draw mapped waveforms as overlays in the Dopesheet/Timeline, Graph Editor
+	and NLA Editor."""
+	context = bpy.context
+	if not context.area or context.area.type not in _SUPPORTED_AREA_TYPES:
+		return
+
 	source_scene = get_waveform_source_scene()
 	settings = get_waveform_settings()
 	
@@ -451,7 +461,12 @@ def draw_waveforms():
 	
 	if not settings or not settings.waveform_show or not waveform_overlays:
 		return
-	
+
+	# The editor can leave a GL scissor rect active from drawing strip
+	# previews/thumbnails or cache indicators; without resetting it here, the
+	# overlay gets silently clipped to whatever box was left over.
+	gpu.state.scissor_test_set(False)
+
 	prefs = bpy.context.preferences.addons[__package__].preferences
 	shader = gpu.shader.from_builtin('IMAGE_COLOR')
 	
@@ -590,12 +605,66 @@ class DOPESHEET_PT_waveform_display(bpy.types.Panel):
 		_draw_waveform_ui(self.layout, context)
 
 
+class GRAPH_PT_waveform_display(bpy.types.Panel):
+	"""Waveform UI Panel in Graph Editor sidebar"""
+	bl_label = "Audio Waveforms"
+	bl_idname = "GRAPH_PT_waveform_display"
+	bl_space_type = "GRAPH_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_graph"
+
+	@classmethod
+	def poll(cls, context):
+		return (
+			context.area is not None and context.area.type == 'GRAPH_EDITOR'
+			and context.preferences.addons[__package__].preferences.ffmpeg_processing
+		)
+
+	def draw_header(self, context):
+		settings = get_waveform_settings(context)
+		if settings:
+			self.layout.prop(settings, "waveform_show", text="")
+
+	def draw(self, context):
+		_draw_waveform_ui(self.layout, context)
+
+
+class NLA_PT_waveform_display(bpy.types.Panel):
+	"""Waveform UI Panel in NLA Editor sidebar"""
+	bl_label = "Audio Waveforms"
+	bl_idname = "NLA_PT_waveform_display"
+	bl_space_type = "NLA_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	bl_order = 20
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_nla"
+
+	@classmethod
+	def poll(cls, context):
+		return (
+			context.area is not None and context.area.type == 'NLA_EDITOR'
+			and context.preferences.addons[__package__].preferences.ffmpeg_processing
+		)
+
+	def draw_header(self, context):
+		settings = get_waveform_settings(context)
+		if settings:
+			self.layout.prop(settings, "waveform_show", text="")
+
+	def draw(self, context):
+		_draw_waveform_ui(self.layout, context)
+
+
 # ---------------------------------------------------------------------------
 # Register classes
 # ---------------------------------------------------------------------------
 
 classes = [RegenerateWaveformsOperator]
-panels = [DOPESHEET_PT_waveform_display]
+panels = [DOPESHEET_PT_waveform_display, GRAPH_PT_waveform_display, NLA_PT_waveform_display]
 
 
 def register():
@@ -604,10 +673,18 @@ def register():
 		bpy.utils.register_class(cls)
 	# Register panels
 	utility_panel.register_panels(panels)
-	
-	global draw_handler
+
+	global draw_handler, draw_handler_graph, draw_handler_nla
 	if draw_handler is None:
 		draw_handler = bpy.types.SpaceDopeSheetEditor.draw_handler_add(
+			draw_waveforms, (), 'WINDOW', 'POST_PIXEL'
+		)
+	if draw_handler_graph is None:
+		draw_handler_graph = bpy.types.SpaceGraphEditor.draw_handler_add(
+			draw_waveforms, (), 'WINDOW', 'POST_PIXEL'
+		)
+	if draw_handler_nla is None:
+		draw_handler_nla = bpy.types.SpaceNLA.draw_handler_add(
 			draw_waveforms, (), 'WINDOW', 'POST_PIXEL'
 		)
 	if _on_load_post not in bpy.app.handlers.load_post:
@@ -616,10 +693,16 @@ def register():
 
 
 def unregister():
-	global draw_handler, _refresh_scheduled
+	global draw_handler, draw_handler_graph, draw_handler_nla, _refresh_scheduled
 	if draw_handler is not None:
 		bpy.types.SpaceDopeSheetEditor.draw_handler_remove(draw_handler, 'WINDOW')
 		draw_handler = None
+	if draw_handler_graph is not None:
+		bpy.types.SpaceGraphEditor.draw_handler_remove(draw_handler_graph, 'WINDOW')
+		draw_handler_graph = None
+	if draw_handler_nla is not None:
+		bpy.types.SpaceNLA.draw_handler_remove(draw_handler_nla, 'WINDOW')
+		draw_handler_nla = None
 	if _on_load_post in bpy.app.handlers.load_post:
 		bpy.app.handlers.load_post.remove(_on_load_post)
 	if bpy.app.timers.is_registered(_refresh_waveform_source):
@@ -627,7 +710,7 @@ def unregister():
 	_refresh_scheduled = False
 	bpy.msgbus.clear_by_owner(_msgbus_owner)
 	_clear_waveform_overlay_data()
-	
+
 	# Unregister panels
 	utility_panel.unregister_panels(panels)
 	# Unregister classes

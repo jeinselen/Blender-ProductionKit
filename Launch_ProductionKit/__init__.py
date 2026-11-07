@@ -312,7 +312,40 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		default="View",
 		update=update_overlays_category_dopesheet)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
-	
+
+	# Sequencer panel category, for the BPM overlay panel
+	def update_overlays_category_sequencer(self, context):
+		utility_panel.register_panel(bpm_overlay.SEQUENCER_PT_bpm_panel)
+
+	overlays_category_sequencer: bpy.props.StringProperty(
+		name="Sequencer",
+		description="Choose a Sequencer tab category for the BPM panel to be placed in, or leave empty to hide the panel",
+		default="Launch",
+		update=update_overlays_category_sequencer)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+	# Graph Editor panel category, shared by both audio waveform and BPM panels
+	def update_overlays_category_graph(self, context):
+		utility_panel.register_panels(audio_waveforms.panels + bpm_overlay.panels)
+
+	overlays_category_graph: bpy.props.StringProperty(
+		name="Graph Editor",
+		description="Choose a Graph Editor tab category for the waveform and BPM panels to be placed in, or leave empty to hide the panels",
+		default="Launch",
+		update=update_overlays_category_graph)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+	# NLA Editor panel category, shared by both audio waveform and BPM panels
+	def update_overlays_category_nla(self, context):
+		utility_panel.register_panels(audio_waveforms.panels + bpm_overlay.panels)
+
+	overlays_category_nla: bpy.props.StringProperty(
+		name="NLA Editor",
+		description="Choose an NLA Editor tab category for the waveform and BPM panels to be placed in, or leave empty to hide the panels",
+		default="Launch",
+		update=update_overlays_category_nla)
+		# Consider adding search_options=(list of currently available tabs) for easier operation
+
 	# General preference settings
 	waveform_size_x: bpy.props.IntProperty(
 		name="Waveform Size X",
@@ -332,7 +365,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		max=1024)
 	
 	ffmpeg_processing: bpy.props.BoolProperty(
-		name='Enable Waveform Display',
+		name='Generate Waveforms',
 		description='Enables audio waveform generation using FFmpeg and turns on the dopetrack UI panel',
 		default=True)
 	ffmpeg_location: bpy.props.StringProperty(
@@ -568,10 +601,13 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		layout.separator(factor = 2.0)
 		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
 		titlegrid.label(text="Timeline Overlays", icon="TIME")
-		row = titlegrid.row()
+		row = titlegrid.row(align=True)
 		row.prop(self, "overlays_category", text="", icon="VIEW3D")
 		row.prop(self, "overlays_category_dopesheet", text="", icon="ACTION") # ACTION CON_ACTION ACTION_TWEAK ACTION_SLOT NLA NLA_PUSHDOWN TIME OVERLAY
-		
+		row.prop(self, "overlays_category_sequencer", text="", icon="SEQUENCE")
+		row.prop(self, "overlays_category_graph", text="", icon="GRAPH")
+		row.prop(self, "overlays_category_nla", text="", icon="NLA")
+
 		grid2 = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
 		grid2.prop(self, "ffmpeg_processing")
 		input = grid2.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=False, align=False)
@@ -592,7 +628,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		layout.separator(factor = 2.0)
 		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
 		titlegrid.label(text="Color Palette", icon="COLOR") # COLOR RESTRICT_COLOR_ON RESTRICT_COLOR_OFF
-		row = titlegrid.row()
+		row = titlegrid.row(align=True)
 		row.prop(self, "palette_category", text="", icon="VIEW3D")
 		row.prop(self, "palette_category_nodes", text="", icon="NODETREE")
 		
@@ -625,7 +661,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		layout.separator(factor = 2.0)
 		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
 		titlegrid.label(text="Easing Adjust", icon="IPO_EASE_IN_OUT") # IPO_EASE_IN_OUT IPO_BEZIER
-		row = titlegrid.row()
+		row = titlegrid.row(align=True)
 		row.prop(self, "easing_category_graph", text="", icon="GRAPH")
 		row.prop(self, "easing_category_dopesheet", text="", icon="ACTION")
 

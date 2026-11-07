@@ -63,14 +63,17 @@ _SHAPE_BUILDERS = {
 
 
 # ---------------------------------------------------------------------------
-# Draw callback — registered once on SpaceDopeSheetEditor,
-# covers both Dope Sheet and Timeline modes.
+# Draw callback — registered on SpaceDopeSheetEditor (Dope Sheet and Timeline
+# modes), SpaceSequenceEditor (Sequencer strips view), SpaceGraphEditor
+# (Graph Editor) and SpaceNLA (NLA Editor).
 # ---------------------------------------------------------------------------
+
+_SUPPORTED_AREA_TYPES = {'DOPESHEET_EDITOR', 'SEQUENCE_EDITOR', 'GRAPH_EDITOR', 'NLA_EDITOR'}
 
 def draw_bpm_overlay():
 	context = bpy.context
-	
-	if not context.area or context.area.type != 'DOPESHEET_EDITOR':
+
+	if not context.area or context.area.type not in _SUPPORTED_AREA_TYPES:
 		return
 	
 	settings = context.scene.production_kit_settings
@@ -119,7 +122,12 @@ def draw_bpm_overlay():
 			
 	if not beat_verts and not measure_verts:
 		return
-	
+
+	# The Sequencer (and other editors) can leave a GL scissor rect active from
+	# drawing strip previews/thumbnails or cache indicators; without resetting
+	# it here, the overlay gets silently clipped to whatever box was left over.
+	gpu.state.scissor_test_set(False)
+
 	shader = gpu.shader.from_builtin('UNIFORM_COLOR')
 	gpu.state.blend_set('ALPHA')
 	
@@ -192,28 +200,127 @@ class BPM_PT_panel(bpy.types.Panel):
 
 
 # ---------------------------------------------------------------------------
+# UI Panel for the Sequencer view
+# ---------------------------------------------------------------------------
+
+class SEQUENCER_PT_bpm_panel(bpy.types.Panel):
+	bl_label = "BPM Overlay"
+	bl_idname = "SEQUENCER_PT_bpm_panel"
+	bl_space_type = "SEQUENCE_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	bl_order = 21
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_sequencer"
+
+	@classmethod
+	def poll(cls, context):
+		return context.area is not None and context.area.type == 'SEQUENCE_EDITOR'
+
+	def draw_header(self, context):
+		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+
+	def draw(self, context):
+		_draw_bpm_ui(self.layout, context)
+
+
+
+# ---------------------------------------------------------------------------
+# UI Panel for the Graph Editor view
+# ---------------------------------------------------------------------------
+
+class GRAPH_PT_bpm_panel(bpy.types.Panel):
+	bl_label = "BPM Overlay"
+	bl_idname = "GRAPH_PT_bpm_panel"
+	bl_space_type = "GRAPH_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	bl_order = 21
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_graph"
+
+	@classmethod
+	def poll(cls, context):
+		return context.area is not None and context.area.type == 'GRAPH_EDITOR'
+
+	def draw_header(self, context):
+		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+
+	def draw(self, context):
+		_draw_bpm_ui(self.layout, context)
+
+
+
+# ---------------------------------------------------------------------------
+# UI Panel for the NLA Editor view
+# ---------------------------------------------------------------------------
+
+class NLA_PT_bpm_panel(bpy.types.Panel):
+	bl_label = "BPM Overlay"
+	bl_idname = "NLA_PT_bpm_panel"
+	bl_space_type = "NLA_EDITOR"
+	bl_region_type = "UI"
+	bl_category = "Launch"
+	bl_order = 21
+	bl_options = {'DEFAULT_CLOSED'}
+	category_preference = "overlays_category_nla"
+
+	@classmethod
+	def poll(cls, context):
+		return context.area is not None and context.area.type == 'NLA_EDITOR'
+
+	def draw_header(self, context):
+		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+
+	def draw(self, context):
+		_draw_bpm_ui(self.layout, context)
+
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
 # Registered from the tab category set in the extension preferences
-panels = [BPM_PT_panel]
+panels = [BPM_PT_panel, SEQUENCER_PT_bpm_panel, GRAPH_PT_bpm_panel, NLA_PT_bpm_panel]
 _draw_handle = None
+_draw_handle_sequencer = None
+_draw_handle_graph = None
+_draw_handle_nla = None
 
 
 def register():
 	utility_panel.register_panels(panels)
-	
-	global _draw_handle
+
+	global _draw_handle, _draw_handle_sequencer, _draw_handle_graph, _draw_handle_nla
 	_draw_handle = bpy.types.SpaceDopeSheetEditor.draw_handler_add(
+		draw_bpm_overlay, (), 'WINDOW', 'POST_PIXEL'
+	)
+	_draw_handle_sequencer = bpy.types.SpaceSequenceEditor.draw_handler_add(
+		draw_bpm_overlay, (), 'WINDOW', 'POST_PIXEL'
+	)
+	_draw_handle_graph = bpy.types.SpaceGraphEditor.draw_handler_add(
+		draw_bpm_overlay, (), 'WINDOW', 'POST_PIXEL'
+	)
+	_draw_handle_nla = bpy.types.SpaceNLA.draw_handler_add(
 		draw_bpm_overlay, (), 'WINDOW', 'POST_PIXEL'
 	)
 
 
 def unregister():
-	global _draw_handle
+	global _draw_handle, _draw_handle_sequencer, _draw_handle_graph, _draw_handle_nla
 	if _draw_handle is not None:
 		bpy.types.SpaceDopeSheetEditor.draw_handler_remove(_draw_handle, 'WINDOW')
 		_draw_handle = None
+	if _draw_handle_sequencer is not None:
+		bpy.types.SpaceSequenceEditor.draw_handler_remove(_draw_handle_sequencer, 'WINDOW')
+		_draw_handle_sequencer = None
+	if _draw_handle_graph is not None:
+		bpy.types.SpaceGraphEditor.draw_handler_remove(_draw_handle_graph, 'WINDOW')
+		_draw_handle_graph = None
+	if _draw_handle_nla is not None:
+		bpy.types.SpaceNLA.draw_handler_remove(_draw_handle_nla, 'WINDOW')
+		_draw_handle_nla = None
 
 	utility_panel.unregister_panels(panels)
 
