@@ -1185,6 +1185,34 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 
 
 
+	########## Strip Time ##########
+
+	strip_time_group: bpy.props.BoolProperty(
+		name="Group (Preserve Offsets)",
+		description="Move the whole selection together instead of aligning every selected strip's edge to this frame",
+		default=False)
+	strip_time_start: bpy.props.IntProperty(
+		name="Start",
+		description="Frame where the selected strip(s) start; editing this moves the selection",
+		get=strip_time.get_start_frame,
+		set=strip_time.set_start_frame)
+	strip_time_end: bpy.props.IntProperty(
+		name="End",
+		description="Frame where the selected strip(s) end; editing this moves the selection",
+		get=strip_time.get_end_frame,
+		set=strip_time.set_end_frame)
+	strip_time_in: bpy.props.IntProperty(
+		name="In",
+		description="Source media frame shown at the selected strip's trimmed start; editing this trims the strip",
+		get=strip_time.get_in_frame,
+		set=strip_time.set_in_frame)
+	strip_time_out: bpy.props.IntProperty(
+		name="Out",
+		description="Source media frame shown at the selected strip's trimmed end; editing this trims the strip",
+		get=strip_time.get_out_frame,
+		set=strip_time.set_out_frame)
+
+
 
 
 ###########################################################################
