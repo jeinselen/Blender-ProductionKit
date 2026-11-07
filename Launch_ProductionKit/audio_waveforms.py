@@ -239,11 +239,16 @@ def _direct_audio_clips(scene):
 	clips = []
 	for strip in scene.sequence_editor.strips_all:
 		if strip.type == 'SOUND' and strip.sound:
+			offset_start = int(strip.frame_offset_start)
+			duration = int(strip.frame_final_duration)
+			source_duration = max(offset_start + duration + int(strip.frame_offset_end), 1)
 			clips.append({
 				"sound": strip.sound,
-				"start": int(strip.frame_start),
-				"end": int(strip.frame_start) + int(strip.frame_final_duration),
+				"start": int(strip.frame_final_start),
+				"end": int(strip.frame_final_start) + duration,
 				"channel": strip.channel,
+				"offset_start": offset_start,
+				"source_duration": source_duration,
 			})
 	return clips
 
@@ -270,17 +275,26 @@ def _collect_audio_clips(scene, time_offset=0, window=None, visited=frozenset())
 		if strip.type == 'SOUND':
 			if not strip.sound:
 				continue
-			start = int(strip.frame_start) + time_offset
+			offset_start = int(strip.frame_offset_start)
+			source_duration = max(offset_start + int(strip.frame_final_duration) + int(strip.frame_offset_end), 1)
+			start = int(strip.frame_final_start) + time_offset
 			end = start + int(strip.frame_final_duration)
 			if window is not None:
-				start, end = max(start, window[0]), min(end, window[1])
-				if start >= end:
+				clipped_start, clipped_end = max(start, window[0]), min(end, window[1])
+				if clipped_start >= clipped_end:
 					continue
+				# A Scene Strip can show only part of this sound; advance the
+				# source-file offset by whatever got clipped off the front so
+				# the cropped waveform still matches the audible content.
+				offset_start += clipped_start - start
+				start, end = clipped_start, clipped_end
 			clips.append({
 				"sound": strip.sound,
 				"start": start,
 				"end": end,
 				"channel": strip.channel,
+				"offset_start": offset_start,
+				"source_duration": source_duration,
 			})
 		elif strip.type == 'SCENE':
 			nested_scene = getattr(strip, "scene", None)
@@ -403,8 +417,11 @@ def generate_waveform_overlay_data(source_scene=None):
 			if existing_img:
 				bpy.data.images.remove(existing_img)
 		else:
-			# No cached image — generate it now via FFmpeg.
-			width = int((clip["end"] - clip["start"]) * prefs.waveform_size_x)
+			# No cached image — generate it now via FFmpeg. The image always
+			# covers the whole source file (not just this clip's trimmed
+			# range) so it can be cached and shared by other strips that
+			# trim the same file differently; draw_waveforms() crops it.
+			width = max(1, int(clip["source_duration"] * prefs.waveform_size_x))
 			height = int(prefs.waveform_size_y)
 			image_path = generate_waveform_image(audio_path, width, height, image_path)
 
@@ -415,6 +432,8 @@ def generate_waveform_overlay_data(source_scene=None):
 				"channel": clip["channel"],
 				"image": image_path,
 				"source_scene": source_scene.name,
+				"offset_start": clip["offset_start"],
+				"source_duration": clip["source_duration"],
 			})
 	_tag_timeline_redraw()
 
@@ -461,7 +480,14 @@ def draw_waveforms():
 			
 			height_scaled = prefs.waveform_size_y * settings.waveform_display_scale
 			screen_y = settings.waveform_display_offset - height_scaled + (overlay["channel"] * height_scaled * 0.5)
-			
+
+			# The image covers the whole source file; sample only the
+			# trimmed window that is actually audible on the timeline.
+			source_duration = overlay.get("source_duration") or (end_x - start_x) or 1
+			offset_start = overlay.get("offset_start", 0)
+			u_start = offset_start / source_duration
+			u_end = (offset_start + (end_x - start_x)) / source_duration
+
 			# Create shader batch
 			batch = batch_for_shader(shader, 'TRI_FAN', {
 				"pos": [
@@ -470,7 +496,7 @@ def draw_waveforms():
 					(screen_x_end, screen_y + height_scaled),
 					(screen_x_start, screen_y + height_scaled)
 				],
-				"texCoord": [(0, 0), (1, 0), (1, 1), (0, 1)]
+				"texCoord": [(u_start, 0), (u_end, 0), (u_end, 1), (u_start, 1)]
 			})
 			
 			# Bind texture and apply color tint with alpha
