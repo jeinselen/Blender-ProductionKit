@@ -16,7 +16,8 @@ from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
 from . import project_version
-from . import strip_time
+from . import sequence_scene
+from . import sequence_strip
 from . import update_images
 from . import vertex_locations
 from . import viewport_shading
@@ -467,7 +468,7 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 	########## Strip Time ##########
 
 	def update_strip_time_category(self, context):
-		utility_panel.register_panels(strip_time.panels)
+		utility_panel.register_panels(sequence_strip.panels)
 
 	strip_time_category: bpy.props.StringProperty(
 		name="Sequencer",
@@ -1230,23 +1231,23 @@ class ProductionKitSettings(bpy.types.PropertyGroup):
 	strip_time_start: bpy.props.IntProperty(
 		name="Start",
 		description="Frame where the selected strip(s) start; editing this moves the selection",
-		get=strip_time.get_start_frame,
-		set=strip_time.set_start_frame)
+		get=sequence_strip.get_start_frame,
+		set=sequence_strip.set_start_frame)
 	strip_time_end: bpy.props.IntProperty(
 		name="End",
 		description="Frame where the selected strip(s) end; editing this moves the selection",
-		get=strip_time.get_end_frame,
-		set=strip_time.set_end_frame)
+		get=sequence_strip.get_end_frame,
+		set=sequence_strip.set_end_frame)
 	strip_time_in: bpy.props.IntProperty(
 		name="In",
 		description="Source media frame shown at the selected strip's trimmed start; editing this trims the strip",
-		get=strip_time.get_in_frame,
-		set=strip_time.set_in_frame)
+		get=sequence_strip.get_in_frame,
+		set=sequence_strip.set_in_frame)
 	strip_time_out: bpy.props.IntProperty(
 		name="Out",
 		description="Source media frame shown at the selected strip's trimmed end; editing this trims the strip",
-		get=strip_time.get_out_frame,
-		set=strip_time.set_out_frame)
+		get=sequence_strip.get_out_frame,
+		set=sequence_strip.set_out_frame)
 
 
 
@@ -1324,7 +1325,8 @@ def register():
 	easing_adjust.register()
 	node_layout.register()
 	project_version.register()
-	strip_time.register()
+	sequence_scene.register()
+	sequence_strip.register()
 	transfer_to_scene.register()
 	update_images.register()
 	vertex_locations.register()
@@ -1343,7 +1345,8 @@ def unregister():
 	easing_adjust.unregister()
 	node_layout.unregister()
 	project_version.unregister()
-	strip_time.unregister()
+	sequence_scene.unregister()
+	sequence_strip.unregister()
 	transfer_to_scene.unregister()
 	update_images.unregister()
 	vertex_locations.unregister()

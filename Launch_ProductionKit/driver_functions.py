@@ -34,7 +34,7 @@ class _MarkerSnapshot:
 				self.frame_by_name[n] = f
 		# Sorted by frame for the prev/next/range/match scans (lets them break early)
 		self.markers = sorted(raw, key=lambda fm: fm[0])
-		
+
 def _marker_snapshot(scene):
 	key = scene.as_pointer()
 	frame = scene.frame_current
