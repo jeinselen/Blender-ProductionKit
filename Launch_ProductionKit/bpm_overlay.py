@@ -70,13 +70,22 @@ _SHAPE_BUILDERS = {
 
 _SUPPORTED_AREA_TYPES = {'DOPESHEET_EDITOR', 'SEQUENCE_EDITOR', 'GRAPH_EDITOR', 'NLA_EDITOR'}
 
+def _overlay_scene(context):
+	"""In the Sequencer, use the displayed sequencer scene rather than the active
+	scene, which Blender 5.x swaps to whichever scene strip is under the playhead
+	when "Sync Scene Time" is enabled."""
+	if context.area and context.area.type == 'SEQUENCE_EDITOR':
+		return getattr(context, "sequencer_scene", None) or context.scene
+	return context.scene
+
 def draw_bpm_overlay():
 	context = bpy.context
 
 	if not context.area or context.area.type not in _SUPPORTED_AREA_TYPES:
 		return
 	
-	settings = context.scene.production_kit_settings
+	scene = _overlay_scene(context)
+	settings = scene.production_kit_settings
 	if not settings.bpm_show:
 		return
 	
@@ -85,7 +94,6 @@ def draw_bpm_overlay():
 		return
 	
 	view2d = region.view2d
-	scene = context.scene
 	fps = scene.render.fps / scene.render.fps_base
 	
 	beat_frames = (60.0 / settings.bpm_speed) * fps
@@ -153,7 +161,7 @@ def draw_bpm_overlay():
 
 def _draw_bpm_ui(layout, context):
 	"""Shared UI drawing for BPM panel — used in both Dopesheet and 3D view."""
-	settings = context.scene.production_kit_settings
+	settings = _overlay_scene(context).production_kit_settings
 	
 	row = layout.row(align=True)
 	row.prop(settings, "bpm_speed")
@@ -192,7 +200,7 @@ class BPM_PT_panel(bpy.types.Panel):
 	category_preference = "overlays_category_dopesheet"
 	
 	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+		self.layout.prop(_overlay_scene(context).production_kit_settings, "bpm_show", text="")
 		
 	def draw(self, context):
 		_draw_bpm_ui(self.layout, context)
@@ -218,7 +226,7 @@ class SEQUENCER_PT_bpm_panel(bpy.types.Panel):
 		return context.area is not None and context.area.type == 'SEQUENCE_EDITOR'
 
 	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+		self.layout.prop(_overlay_scene(context).production_kit_settings, "bpm_show", text="")
 
 	def draw(self, context):
 		_draw_bpm_ui(self.layout, context)
@@ -244,7 +252,7 @@ class GRAPH_PT_bpm_panel(bpy.types.Panel):
 		return context.area is not None and context.area.type == 'GRAPH_EDITOR'
 
 	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+		self.layout.prop(_overlay_scene(context).production_kit_settings, "bpm_show", text="")
 
 	def draw(self, context):
 		_draw_bpm_ui(self.layout, context)
@@ -270,7 +278,7 @@ class NLA_PT_bpm_panel(bpy.types.Panel):
 		return context.area is not None and context.area.type == 'NLA_EDITOR'
 
 	def draw_header(self, context):
-		self.layout.prop(context.scene.production_kit_settings, "bpm_show", text="")
+		self.layout.prop(_overlay_scene(context).production_kit_settings, "bpm_show", text="")
 
 	def draw(self, context):
 		_draw_bpm_ui(self.layout, context)
