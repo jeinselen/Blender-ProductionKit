@@ -12,6 +12,7 @@ from . import cycle_transforms
 from . import driver_functions
 from . import driver_pickwhip
 from . import easing_adjust
+from . import math_node
 from . import node_layout
 from . import utility_panel
 from . import transfer_to_scene
@@ -91,6 +92,17 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		default="Node",
 		update=update_images_category)
 		# Consider adding search_options=(list of currently available tabs) for easier operation
+
+	########## Math Node ##########
+
+	def update_math_node_category(self, context):
+		utility_panel.register_panels(math_node.panels)
+
+	math_node_category: bpy.props.StringProperty(
+		name="Node Editor",
+		description="Choose a node editor tab category for the panel to be placed in, or leave empty to hide the panel",
+		default="Node",
+		update=update_math_node_category)
 
 	########## Node Layout ##########
 
@@ -588,6 +600,15 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 		row5.prop(self, "filter5_alphamode", text='')
 
 
+		########## Math Expression ##########
+
+		layout.separator(factor = 2.0)
+		titlegrid = layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=False)
+		titlegrid.label(text="Math Expression Nodes", icon="NODETREE")
+		titlegrid.prop(self, "math_node_category", text="", icon="NODETREE")
+
+
+
 		########## Node Layout ##########
 
 		layout.separator(factor = 2.0)
@@ -681,6 +702,21 @@ class ProductionKitPreferences(bpy.types.AddonPreferences):
 # Local project settings
 
 class ProductionKitSettings(bpy.types.PropertyGroup):
+	
+	########## Math Expression Nodes ##########
+	
+	math_name: bpy.props.StringProperty(
+		name="Group Name",
+		description="Name for the new node group (uses the function name, or Math Expression, if empty)",
+		default="",
+		maxlen=63
+	)
+	math_expression: bpy.props.StringProperty(
+		name="Expression",
+		description="Python math expression to turn into a node group, like 4 * t ** 3 if t < 0.5 else 1 - pow(-2 * t + 2, 3) / 2. Newlines are written as \\n (use Paste Python to convert multi-line code)",
+		default="",
+		maxlen=4096
+	)
 	
 	########## Update Images ##########
 	
@@ -1323,6 +1359,7 @@ def register():
 	driver_functions.register()
 	driver_pickwhip.register()
 	easing_adjust.register()
+	math_node.register()
 	node_layout.register()
 	project_version.register()
 	sequence_scene.register()
@@ -1343,6 +1380,7 @@ def unregister():
 	driver_pickwhip.unregister()
 	driver_functions.unregister()
 	easing_adjust.unregister()
+	math_node.unregister()
 	node_layout.unregister()
 	project_version.unregister()
 	sequence_scene.unregister()

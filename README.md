@@ -86,6 +86,19 @@
     - **Update Legacy Drivers:** scans the whole file and rewrites outdated `markerRange()` and `markerMatch()` expressions to the current argument format; only outdated expressions are touched, so it is safe to re-run. The *Plain Match → Switch* option (on by default) also upgrades bare `markerMatch(self)` / `markerMatch(self, 'source')` drivers, which originally defaulted to *switch* mode before — leave this setting off for files that intentionally use the new *frame* mode
     - **Delete Orphaned Drivers:** finds drivers whose target property no longer exists (for example, left behind when a Geometry Nodes socket or custom property is removed) and optionally delete them (this clears the `Invalid driver` warnings such orphans print to the console on file load)
   
+- ### Math Expression Nodes
+
+  - Type a Python math expression in the node editor sidebar and generate a node group from it (Geometry, Shader, and Compositor node editors; Compositor requires Blender 5.0+)
+  - The group can be renamed freely. The source expression is stored as a custom property (`productionkit_expression`) on the node group itself, so files stay intact when opened and saved without this extension
+  - Select a single expression group node (or enter the group) to edit its expression and press *Update Group*; the group is updated in place, so existing connections are kept (inputs are matched by name, then by position, so renaming `a` to `k` keeps its links)
+  - Name and expression fields are shown for a new group; when a previously generated group is selected (or entered) they switch to that group's name and stored source. The expression is checked when the field is committed (Enter or clicking away), with the error or detected inputs shown below it
+  - A one-line field is used for entry; the *Paste Python* button converts multi-line code from the clipboard into one line (newlines are stored as `\n`)
+  - Inputs are float or vector. Expressions use the variable names in order of first use (`.x` `.y` `.z` or vector-only functions like `length()` make a variable a vector). With a `def` header the arguments become the inputs, with optional types and defaults: `def mix_pos(a, v: vector = (0, 0, 1)):`
+  - Supported syntax: numbers, `+ - * / // % **`, comparisons, `and` / `or` / `not`, `a if c else b`, vectors as `(x, y, z)`, assignments (`a, b = 1, 2` and `t -= 1`), `if` / `elif` / `else` with `return`
+    - Both sides of a condition are always evaluated (as with any node mix), and conditions are 0/1 values
+  - Functions: `sin cos tan asin acos atan atan2 sinh cosh tanh sqrt exp log log2 log10 pow abs floor ceil trunc fract sign round radians degrees fmod min max hypot clamp lerp smoothstep snap wrap pingpong`, plus vector functions `dot cross length normalize distance reflect refract project faceforward`; constants `pi tau e`
+  - Example: `4 * t ** 3 if t < 0.5 else 1 - pow(-2 * t + 2, 3) / 2`
+
 - ### Project Versioning
 
   - Quick shortcuts for saving numbered project files in an archive location
